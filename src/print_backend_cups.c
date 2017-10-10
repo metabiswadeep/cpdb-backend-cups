@@ -3,7 +3,7 @@
 #include <glib.h>
 #include <string.h>
 #include <cups/cups.h>
-#include <CPDBackend.h>
+#include <cpdb-libs-backend.h>
 #include "backend_helper.h"
 
 #define _CUPS_NO_DEPRECATED 1
