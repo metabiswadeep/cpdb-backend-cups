@@ -1,4 +1,4 @@
-# CUPS
+# CUPS Common Print Dialog Backend
 
 This repository hosts the code for the CUPS **C**ommon **P**rint **D**ialog **B**ackend. This backend manages and provides information about CUPS and IPP printing destinations to the printing dialog.
 
