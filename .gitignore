@@ -1,6 +1,6 @@
 *.o
 *.pdf
-print_backend_cups
+cups
 .vscode/
 .gdb_history
 gmon.out
@@ -20,3 +20,4 @@ config.status
 configure
 data/org.openprinting.Backend.CUPS.service
 src/.deps
+tmp/
