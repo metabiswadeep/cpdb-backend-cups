@@ -28,4 +28,4 @@ The [Common Printing Dialog](https://wiki.ubuntu.com/CommonPrintingDialog) proje
 ## Running
 
 The backend is auto-activated when a frontend runs; So no need to run it explicitly.
-However, if you wish to see the debug statements at the backend, you can run  `print_backend_cups`. 
+However, if you wish to see the debug statements at the backend, you can run  `/usr/lib/print-backends/cups`.
