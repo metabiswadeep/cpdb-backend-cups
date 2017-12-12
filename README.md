@@ -25,7 +25,15 @@ The [Common Printing Dialog](https://wiki.ubuntu.com/CommonPrintingDialog) proje
     $ sudo make install
 
 
+## Following the development and updating
+
+The current source code you find on the [OpenPrinting GitHub](https://github.com/OpenPrinting/cpdb-backend-cups).
+
 ## Running
 
 The backend is auto-activated when a frontend runs; So no need to run it explicitly.
 However, if you wish to see the debug statements at the backend, you can run  `/usr/lib/print-backends/cups`.
+
+## More Info
+
+[Nilanjana Lodh's Google Summer of Code 2017 Final Report](https://nilanjanalodh.github.io/common-print-dialog-gsoc17/)
