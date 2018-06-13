@@ -267,7 +267,7 @@ static gboolean on_handle_print_file(PrintBackend *interface,
     int job_id = print_file(p, file_path, num_settings, settings);
 
     char jobid_string[64];
-    sprintf(jobid_string, "%d", job_id);
+    snprintf(jobid_string, sizeof(jobid_string), "%d", job_id);
     print_backend_complete_print_file(interface, invocation, jobid_string);
 
     /**

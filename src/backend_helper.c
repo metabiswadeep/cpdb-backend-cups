@@ -143,9 +143,10 @@ gboolean dialog_contains_printer(BackendObj *b, const char *dialog_name, const c
 
     if (d == NULL || d->printers == NULL)
     {
-        char msg[512];
+	char *msg = malloc(sizeof(char) * (strlen(dialog_name) + 50));
         sprintf(msg, "Can't retrieve printers for dialog %s.\n", dialog_name);
         MSG_LOG(msg, ERR);
+	free(msg);
         return FALSE;
     }
     if (g_hash_table_contains(d->printers, printer_name))
@@ -159,9 +160,10 @@ PrinterCUPS *add_printer_to_dialog(BackendObj *b, const char *dialog_name, const
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     if (d == NULL)
     {
-        char msg[512];
+	char *msg = malloc(sizeof(char) * (strlen(dialog_name) + 50));
         sprintf(msg, "Invalid dialog name %s.\n", dialog_name);
         MSG_LOG(msg, ERR);
+	free(msg);
         return NULL;
     }
 
@@ -175,9 +177,10 @@ void remove_printer_from_dialog(BackendObj *b, const char *dialog_name, const ch
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     if (d == NULL)
     {
-        char msg[512];
+	char *msg = malloc(sizeof(char) * (strlen(printer_name) + 50));
         sprintf(msg, "Unable to remove printer %s.\n", printer_name);
         MSG_LOG(msg, WARN);
+	free(msg);
         return;
     }
     g_hash_table_remove(d->printers, printer_name);
@@ -968,22 +971,23 @@ char *extract_ipp_attribute(ipp_attribute_t *attr, int index, const char *option
 
     /** Then deal with the generic cases **/
     char *str;
+    const char *attrstr;
     switch (ippGetValueTag(attr))
     {
     case IPP_TAG_INTEGER:
         str = (char *)(malloc(sizeof(char) * 50));
-        sprintf(str, "%d", ippGetInteger(attr, index));
+        snprintf(str, sizeof(str), "%d", ippGetInteger(attr, index));
         break;
 
     case IPP_TAG_ENUM:
-        str = (char *)(malloc(sizeof(char) * 50));
-        sprintf(str, "%s", ippEnumString(option_name, ippGetInteger(attr, index)));
+        attrstr = ippEnumString(option_name, ippGetInteger(attr, index));
+	str = strdup(attrstr);
         break;
 
     case IPP_TAG_RANGE:
-        str = (char *)(malloc(sizeof(char) * 50));
+        str = (char *)(malloc(sizeof(char) * 100));
         int upper, lower = ippGetRange(attr, index, &upper);
-        sprintf(str, "%d-%d", lower, upper);
+        snprintf(str, sizeof(str), "%d-%d", lower, upper);
         break;
 
     case IPP_TAG_RESOLUTION:
@@ -992,9 +996,7 @@ char *extract_ipp_attribute(ipp_attribute_t *attr, int index, const char *option
         return extract_string_from_ipp(attr, index);
     }
 
-    char *ans = get_string_copy(str);
-    free(str);
-    return ans;
+    return str;
 }
 
 char *extract_res_from_ipp(ipp_attribute_t *attr, int index)
@@ -1004,11 +1006,11 @@ char *extract_res_from_ipp(ipp_attribute_t *attr, int index)
     xres = ippGetResolution(attr, index, &yres, &units);
 
     char *unit = units == IPP_RES_PER_INCH ? "dpi" : "dpcm";
-    char buf[50];
+    char buf[100];
     if (xres == yres)
-        sprintf(buf, "%d%s", xres, unit);
+        snprintf(buf, sizeof(buf), "%d%s", xres, unit);
     else
-        sprintf(buf, "%dx%d%s", xres, yres, unit);
+        snprintf(buf, sizeof(buf), "%dx%d%s", xres, yres, unit);
 
     return get_string_copy(buf);
 }
@@ -1065,7 +1067,7 @@ GVariant *pack_cups_job(cups_job_t job)
     printf("%s\n", job.dest);
     GVariant **t = g_new0(GVariant *, 7);
     char jobid[20];
-    sprintf(jobid, "%d", job.id);
+    snprintf(jobid, sizeof(jobid), "%d", job.id);
     t[0] = g_variant_new_string(jobid);
     t[1] = g_variant_new_string(job.title);
     t[2] = g_variant_new_string(job.dest);
