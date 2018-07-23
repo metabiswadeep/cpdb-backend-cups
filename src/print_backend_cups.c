@@ -259,6 +259,7 @@ static gboolean on_handle_print_file(PrintBackend *interface,
                                      const gchar *file_path,
                                      int num_settings,
                                      GVariant *settings,
+                                     const gchar *final_file_path,
                                      gpointer user_data)
 {
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
