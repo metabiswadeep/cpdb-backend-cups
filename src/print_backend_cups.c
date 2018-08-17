@@ -259,6 +259,7 @@ static gboolean on_handle_print_file(PrintBackend *interface,
                                      const gchar *file_path,
                                      int num_settings,
                                      GVariant *settings,
+                                     const gchar *final_file_path,
                                      gpointer user_data)
 {
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
@@ -271,10 +272,11 @@ static gboolean on_handle_print_file(PrintBackend *interface,
     print_backend_complete_print_file(interface, invocation, jobid_string);
 
     /**
-     * Printing will always be the last operation, so remove that frontend
+     * (Currently Disabled) Printing will always be the last operation, so remove that frontend
      */
-    set_dialog_cancel(b, dialog_name);
-    remove_frontend(b, dialog_name);
+    //set_dialog_cancel(b, dialog_name);
+    //remove_frontend(b, dialog_name);
+
     if (no_frontends(b))
     {
         g_message("No frontends connected .. exiting backend.\n");
