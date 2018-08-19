@@ -8,7 +8,7 @@ The [Common Printing Dialog](https://wiki.ubuntu.com/CommonPrintingDialog) proje
 
 ## Dependencies
 
-- [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs)
+- [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs) : Version >= 1.2.0
 - [CUPS](https://github.com/apple/cups/releases) : Version >= 2.2 
  Install bleeding edge release from [here](https://github.com/apple/cups/releases).
  OR

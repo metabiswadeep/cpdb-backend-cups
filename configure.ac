@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([cpdb-backend-cups],[1.0.1],[nilanjanalodh@gmail.com],[CPDB - CUPS Backend], [https://github.com/OpenPrinting/cpdb-backend-cups])
+AC_INIT([cpdb-backend-cups],[1.1.0],[nilanjanalodh@gmail.com],[CPDB - CUPS Backend], [https://github.com/OpenPrinting/cpdb-backend-cups])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AC_CONFIG_SRCDIR([src/print_backend_cups.c])
 
