@@ -23,6 +23,9 @@ BackendObj *b;
 
 int main()
 {
+    /* Initialize internal default settings of the CUPS library */
+    int p = ippPort();
+
     b = get_new_BackendObj();
     acquire_session_bus_name(BUS_NAME);
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
