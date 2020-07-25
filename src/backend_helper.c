@@ -584,40 +584,46 @@ int get_all_options(PrinterCUPS *p, Option **options)
 
     char **option_names;
     int num_options = get_job_creation_attributes(p, &option_names); /** number of options to be returned**/
-    int i, j;                                                        /**Looping variables **/
+    int i, j, optsIndex = 0;                                         /**Looping variables **/
+
     Option *opts = (Option *)(malloc(sizeof(Option) * num_options)); /**Option array, which will be filled **/
     ipp_attribute_t *vals;                                           /** Variable to store the values of the options **/
 
     for (i = 0; i < num_options; i++)
     {
-        opts[i].option_name = option_names[i];
+        if(strcmp(option_names[i], "media-col") == 0)
+            continue;
+
+        opts[optsIndex].option_name = option_names[i];
         vals = cupsFindDestSupported(p->http, p->dest, p->dinfo, option_names[i]);
         if (vals)
-            opts[i].num_supported = ippGetCount(vals);
+            opts[optsIndex].num_supported = ippGetCount(vals);
         else
-            opts[i].num_supported = 0;
+            opts[optsIndex].num_supported = 0;
 
         /** Retreive all the supported values for that option **/
-        opts[i].supported_values = new_cstring_array(opts[i].num_supported);
-        for (j = 0; j < opts[i].num_supported; j++)
+        opts[optsIndex].supported_values = new_cstring_array(opts[optsIndex].num_supported);
+        for (j = 0; j < opts[optsIndex].num_supported; j++)
         {
-            opts[i].supported_values[j] = extract_ipp_attribute(vals, j, option_names[i]);
-            if (opts[i].supported_values[j] == NULL)
+            opts[optsIndex].supported_values[j] = extract_ipp_attribute(vals, j, option_names[i]);
+            if (opts[optsIndex].supported_values[j] == NULL)
             {
-                opts[i].supported_values[j] = get_string_copy("NA");
+                opts[optsIndex].supported_values[j] = get_string_copy("NA");
             }
         }
 
         /** Retrieve the default value for that option **/
-        opts[i].default_value = get_default(p, option_names[i]);
-        if (opts[i].default_value == NULL)
+        opts[optsIndex].default_value = get_default(p, option_names[i]);
+        if (opts[optsIndex].default_value == NULL)
         {
-            opts[i].default_value = get_string_copy("NA");
+            opts[optsIndex].default_value = get_string_copy("NA");
         }
+
+        optsIndex++;
     }
 
-    *options = opts;
-    return num_options;
+    *options = (Option *) realloc(opts, sizeof(Option) * optsIndex);
+    return optsIndex;
 }
 
 const char *get_printer_state(PrinterCUPS *p)
