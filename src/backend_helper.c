@@ -586,8 +586,8 @@ int get_all_options(PrinterCUPS *p, Option **options)
     int num_options = get_job_creation_attributes(p, &option_names); /** number of options to be returned**/
     int i, j, optsIndex = 0;                                         /**Looping variables **/
 
-    Option *opts = (Option *)(malloc(sizeof(Option) * num_options)); /**Option array, which will be filled **/
-    ipp_attribute_t *vals;                                           /** Variable to store the values of the options **/
+    Option *opts = (Option *)(malloc(sizeof(Option) * (num_options+1))); /**Option array, which will be filled, +1 for page-set option **/
+    ipp_attribute_t *vals;                                               /** Variable to store the values of the options **/
 
     for (i = 0; i < num_options; i++)
     {
@@ -621,6 +621,16 @@ int get_all_options(PrinterCUPS *p, Option **options)
 
         optsIndex++;
     }
+
+    /* Add the page-set option */
+    opts[optsIndex].option_name = get_string_copy("page-set");
+    opts[optsIndex].num_supported = 3;
+    opts[optsIndex].supported_values = new_cstring_array(opts[optsIndex].num_supported);
+    opts[optsIndex].supported_values[0] = get_string_copy("all");
+    opts[optsIndex].supported_values[1] = get_string_copy("even");
+    opts[optsIndex].supported_values[2] = get_string_copy("odd");
+    opts[optsIndex].default_value = opts[optsIndex].supported_values[0];
+    optsIndex++;
 
     *options = (Option *) realloc(opts, sizeof(Option) * optsIndex);
     return optsIndex;
