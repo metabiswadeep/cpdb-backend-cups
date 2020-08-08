@@ -624,12 +624,11 @@ int get_all_options(PrinterCUPS *p, Option **options)
 
     /* Add the page-set option */
     opts[optsIndex].option_name = get_string_copy("page-set");
-    opts[optsIndex].num_supported = 3;
+    opts[optsIndex].num_supported = 2;
     opts[optsIndex].supported_values = new_cstring_array(opts[optsIndex].num_supported);
-    opts[optsIndex].supported_values[0] = get_string_copy("all");
-    opts[optsIndex].supported_values[1] = get_string_copy("even");
-    opts[optsIndex].supported_values[2] = get_string_copy("odd");
-    opts[optsIndex].default_value = opts[optsIndex].supported_values[0];
+    opts[optsIndex].supported_values[0] = get_string_copy("even");
+    opts[optsIndex].supported_values[1] = get_string_copy("odd");
+    opts[optsIndex].default_value = get_string_copy("all");
     optsIndex++;
 
     *options = (Option *) realloc(opts, sizeof(Option) * optsIndex);
