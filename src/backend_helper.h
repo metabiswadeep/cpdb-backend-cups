@@ -7,7 +7,7 @@
 #include <string.h>
 #include <cups/cups.h>
 #include <cups/ppd.h>
-#include <cpdb-libs-backend.h>
+#include <cpdb/cpdb.h>
 
 #define INFO 3
 #define WARN 2

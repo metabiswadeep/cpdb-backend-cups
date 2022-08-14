@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([cpdb-backend-cups],[1.1.1],[nilanjanalodh@gmail.com],[CPDB - CUPS Backend], [https://github.com/OpenPrinting/cpdb-backend-cups])
+AC_INIT([cpdb-backend-cups], [2.0.0], [https://github.com/OpenPrinting/cpdb-backend-cups/issues/], [cpdb-backend-cups], [https://github.com/OpenPrinting/cpdb-backend-cups])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AC_CONFIG_SRCDIR([src/print_backend_cups.c])
 
@@ -12,7 +12,7 @@ AC_PROG_CC
 
 
 # Checks for backend library
-PKG_CHECK_MODULES([CPDBBACKEND],[cpdb-libs-backend >= 1])
+PKG_CHECK_MODULES([CPDB],[cpdb >= 2])
 PKG_CHECK_MODULES([GIO],[gio-2.0])
 PKG_CHECK_MODULES([GIOUNIX],[gio-unix-2.0])
 PKG_CHECK_MODULES([GLIB],[glib-2.0])

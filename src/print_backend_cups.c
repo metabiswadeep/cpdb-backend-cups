@@ -3,7 +3,7 @@
 #include <glib.h>
 #include <string.h>
 #include <cups/cups.h>
-#include <cpdb-libs-backend.h>
+#include <cpdb/cpdb.h>
 #include "backend_helper.h"
 
 #define _CUPS_NO_DEPRECATED 1
@@ -141,7 +141,7 @@ static void on_refresh_backend(GDBusConnection *connection,
                                GVariant *parameters,
                                gpointer not_used)
 {
-    char *dialog_name = get_string_copy(sender_name);
+    char *dialog_name = cpdbGetStringCopy(sender_name);
     g_message("Refresh backend signal from %s\n", dialog_name);
     set_dialog_cancel(b, dialog_name); /// this stops the enumeration of printers
     refresh_printer_list(b, dialog_name);
@@ -155,8 +155,8 @@ static void on_hide_remote_printers(GDBusConnection *connection,
                                     GVariant *parameters,
                                     gpointer not_used)
 {
-    char *dialog_name = get_string_copy(sender_name);
-    g_message("%s signal from %s\n", HIDE_REMOTE_SIGNAL, dialog_name);
+    char *dialog_name = cpdbGetStringCopy(sender_name);
+    g_message("%s signal from %s\n", CPDB_SIGNAL_HIDE_REMOTE, dialog_name);
     if (!get_hide_remote(b, dialog_name))
     {
         set_dialog_cancel(b, dialog_name);
@@ -173,8 +173,8 @@ static void on_unhide_remote_printers(GDBusConnection *connection,
                                       GVariant *parameters,
                                       gpointer not_used)
 {
-    char *dialog_name = get_string_copy(sender_name);
-    g_message("%s signal from %s\n", UNHIDE_REMOTE_SIGNAL, dialog_name);
+    char *dialog_name = cpdbGetStringCopy(sender_name);
+    g_message("%s signal from %s\n", CPDB_SIGNAL_UNHIDE_REMOTE, dialog_name);
     if (get_hide_remote(b, dialog_name))
     {
         set_dialog_cancel(b, dialog_name);
@@ -191,8 +191,8 @@ static void on_hide_temp_printers(GDBusConnection *connection,
                                   GVariant *parameters,
                                   gpointer not_used)
 {
-    char *dialog_name = get_string_copy(sender_name);
-    g_message("%s signal from %s\n", HIDE_TEMP_SIGNAL, dialog_name);
+    char *dialog_name = cpdbGetStringCopy(sender_name);
+    g_message("%s signal from %s\n", CPDB_SIGNAL_HIDE_TEMP, dialog_name);
     if (!get_hide_temp(b, dialog_name))
     {
         set_dialog_cancel(b, dialog_name);
@@ -209,8 +209,8 @@ static void on_unhide_temp_printers(GDBusConnection *connection,
                                     GVariant *parameters,
                                     gpointer not_used)
 {
-    char *dialog_name = get_string_copy(sender_name);
-    g_message("%s signal from %s\n", UNHIDE_TEMP_SIGNAL, dialog_name);
+    char *dialog_name = cpdbGetStringCopy(sender_name);
+    g_message("%s signal from %s\n", CPDB_SIGNAL_UNHIDE_TEMP, dialog_name);
     if (get_hide_temp(b, dialog_name))
     {
         set_dialog_cancel(b, dialog_name);
@@ -415,7 +415,7 @@ static gboolean on_handle_replace(PrintBackend *interface,
     if (d != NULL)
     {
         g_hash_table_steal(b->dialogs, previous_name);
-        g_hash_table_insert(b->dialogs, get_string_copy(dialog_name), d);
+        g_hash_table_insert(b->dialogs, cpdbGetStringCopy(dialog_name), d);
         g_message("Replaced %s --> %s\n", previous_name, dialog_name);
     }
     print_backend_complete_replace(interface, invocation);
@@ -487,7 +487,7 @@ void connect_to_signals()
     g_dbus_connection_signal_subscribe(b->dbus_connection,
                                        NULL,                             //Sender name
                                        "org.openprinting.PrintFrontend", //Sender interface
-                                       STOP_BACKEND_SIGNAL,              //Signal name
+                                       CPDB_SIGNAL_STOP_BACKEND,              //Signal name
                                        NULL,                             /**match on all object paths**/
                                        NULL,                             /**match on all arguments**/
                                        0,                                //Flags
@@ -497,7 +497,7 @@ void connect_to_signals()
     g_dbus_connection_signal_subscribe(b->dbus_connection,
                                        NULL,                             //Sender name
                                        "org.openprinting.PrintFrontend", //Sender interface
-                                       REFRESH_BACKEND_SIGNAL,           //Signal name
+                                       CPDB_SIGNAL_REFRESH_BACKEND,           //Signal name
                                        NULL,                             /**match on all object paths**/
                                        NULL,                             /**match on all arguments**/
                                        0,                                //Flags
@@ -507,7 +507,7 @@ void connect_to_signals()
     g_dbus_connection_signal_subscribe(b->dbus_connection,
                                        NULL,                             //Sender name
                                        "org.openprinting.PrintFrontend", //Sender interface
-                                       HIDE_REMOTE_SIGNAL,         		 //Signal name
+                                       CPDB_SIGNAL_HIDE_REMOTE,         		 //Signal name
                                        NULL,                             /**match on all object paths**/
                                        NULL,                             /**match on all arguments**/
                                        0,                                //Flags
@@ -517,7 +517,7 @@ void connect_to_signals()
     g_dbus_connection_signal_subscribe(b->dbus_connection,
                                        NULL,                             //Sender name
                                        "org.openprinting.PrintFrontend", //Sender interface
-                                       UNHIDE_REMOTE_SIGNAL,        	 //Signal name
+                                       CPDB_SIGNAL_UNHIDE_REMOTE,        	 //Signal name
                                        NULL,                             /**match on all object paths**/
                                        NULL,                             /**match on all arguments**/
                                        0,                                //Flags
@@ -527,7 +527,7 @@ void connect_to_signals()
     g_dbus_connection_signal_subscribe(b->dbus_connection,
                                        NULL,                             //Sender name
                                        "org.openprinting.PrintFrontend", //Sender interface
-                                       HIDE_TEMP_SIGNAL,     	         //Signal name
+                                       CPDB_SIGNAL_HIDE_TEMP,     	         //Signal name
                                        NULL,                             /**match on all object paths**/
                                        NULL,                             /**match on all arguments**/
                                        0,                                //Flags
@@ -537,7 +537,7 @@ void connect_to_signals()
     g_dbus_connection_signal_subscribe(b->dbus_connection,
                                        NULL,                             //Sender name
                                        "org.openprinting.PrintFrontend", //Sender interface
-                                       UNHIDE_TEMP_SIGNAL,          	 //Signal name
+                                       CPDB_SIGNAL_UNHIDE_TEMP,          	 //Signal name
                                        NULL,                             /**match on all object paths**/
                                        NULL,                             /**match on all arguments**/
                                        0,                                //Flags
