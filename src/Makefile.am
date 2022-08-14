@@ -1,6 +1,6 @@
 backenddir = $(CPDB_BACKEND_DIR)
 backend_PROGRAMS = cups
-cups_SOURCES = print_backend_cups.c backend_helper.c
+cups_SOURCES = print_backend_cups.c backend_helper.c backend_helper.h
 cups_CPPFLAGS  = $(CPDB_CFLAGS)
 cups_CPPFLAGS += $(GLIB_CFLAGS)
 cups_CPPFLAGS += $(GIO_CFLAGS)

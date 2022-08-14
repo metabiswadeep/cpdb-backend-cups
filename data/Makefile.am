@@ -1,3 +1,7 @@
+EXTRA_DIST = \
+	org.openprinting.Backend.CUPS \
+	org.openprinting.Backend.CUPS.service.in
+
 # Dbus service file
 servicedir = $(DBUS_SERVICES_DIR)
 service_in_files = org.openprinting.Backend.CUPS.service.in
