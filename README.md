@@ -4,26 +4,26 @@ This repository hosts the code for the CUPS **C**ommon **P**rint **D**ialog **B*
 
 ## Background
 
-The [Common Printing Dialog](https://wiki.ubuntu.com/CommonPrintingDialog) project aims to provide a uniform, GUI toolkit independent printing experience on Linux Desktop Environments.
+The [Common Print Dialog Backends](https://openprinting.github.io/achievements/#common-print-dialog-backends) project aims to move the responsability on the part of the print dialog which communicates with the print system away from the GUI toolkit/app developers to the print system's developers and also to bring all print technologies available to the user (CUPS, cloud printing services, ...) into all application's print dialogs.
 
 ## Dependencies
 
-- [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs) : Version >= 1.2.0
-- [CUPS](https://github.com/apple/cups/releases) : Version >= 2.2 
- Install bleeding edge release from [here](https://github.com/apple/cups/releases).
- OR
+- [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs): Version >= 2.0.0 (or GIT Master)
+
+- [CUPS](https://github.com/OpenPrinting/cups): Version >= 2.2
 `sudo apt install cups libcups2-dev`
 
-- GLIB 2.0 :
+- GLIB 2.0:
 `sudo apt install libglib2.0-dev`
 
 ## Build and installation
 
-    $ ./autogen.sh
-    $ ./configure
-    $ make
-    $ sudo make install
-
+```
+$ ./autogen.sh
+$ ./configure
+$ make
+$ sudo make install
+```
 
 ## Following the development and updating
 
@@ -31,8 +31,9 @@ The current source code you find on the [OpenPrinting GitHub](https://github.com
 
 ## Running
 
-The backend is auto-activated when a frontend runs; So no need to run it explicitly.
-However, if you wish to see the debug statements at the backend, you can run  `/usr/lib/print-backends/cups`.
+The backend is auto-activated when a frontend (like a CPDB-supporting print dialog or the example frontend `demo/print_frontend` of cpdb-libs) is started, so there is no need to run it explicitly.
+
+However, if you wish to see the debug statements in the backend code, you can run `/usr/local/lib/print-backends/cups
 
 ## More Info
 
