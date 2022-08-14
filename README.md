@@ -25,6 +25,12 @@ $ make
 $ sudo make install
 ```
 
+If you are updating from an older version, please kill the old version of the backend:
+```
+$ sudo killall cups
+```
+This way the next time when a print dialog is opened the new version of the backend is started.
+
 ## Following the development and updating
 
 The current source code you find on the [OpenPrinting GitHub](https://github.com/OpenPrinting/cpdb-backend-cups).
