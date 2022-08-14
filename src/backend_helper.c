@@ -415,7 +415,7 @@ gboolean ensure_printer_connection(PrinterCUPS *p)
         return TRUE;
 
     int temp = FALSE;
-    if (cups_is_temporary(p)) temp = TRUE;
+    if (cups_is_temporary(p->dest)) temp = TRUE;
 
     p->http = cupsConnectDest(p->dest, CUPS_DEST_FLAGS_NONE, 300, NULL, NULL, 0, NULL, NULL);
     if (p->http == NULL)
@@ -823,7 +823,7 @@ int get_all_options(PrinterCUPS *p, Option **options)
             opts[optsIndex].supported_values[j] = extract_ipp_attribute(vals, j, attrs[i]);
             if (opts[optsIndex].supported_values[j] == NULL)
             {
-                opts[optsIndex].supported_values = cpdbGetStringCopy("NA");
+                opts[optsIndex].supported_values[j] = cpdbGetStringCopy("NA");
             }
         }
 
