@@ -11,10 +11,10 @@ The [Common Print Dialog Backends](https://openprinting.github.io/achievements/#
 - [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs): Version >= 2.0.0 (or GIT Master)
 
 - [CUPS](https://github.com/OpenPrinting/cups): Version >= 2.2
-`sudo apt install cups libcups2-dev`
+  `sudo apt install cups libcups2-dev`
 
 - GLIB 2.0:
-`sudo apt install libglib2.0-dev`
+  `sudo apt install libglib2.0-dev`
 
 ## Build and installation
 
@@ -39,8 +39,10 @@ The current source code you find on the [OpenPrinting GitHub](https://github.com
 
 The backend is auto-activated when a frontend (like a CPDB-supporting print dialog or the example frontend `demo/print_frontend` of cpdb-libs) is started, so there is no need to run it explicitly.
 
-However, if you wish to see the debug statements in the backend code, you can run `/usr/local/lib/print-backends/cups
+However, if you wish to see the debug statements in the backend code, you can run `/usr/local/lib/print-backends/cups`
 
 ## More Info
 
-[Nilanjana Lodh's Google Summer of Code 2017 Final Report](https://nilanjanalodh.github.io/common-print-dialog-gsoc17/)
+- [Nilanjana Lodh's Google Summer of Code 2017 Final Report](https://nilanjanalodh.github.io/common-print-dialog-gsoc17/)
+
+- [Gaurav Guleria's Google Summer of Code 2022 Final Report](https://github.com/TinyTrebuchet/gsoc22/)
