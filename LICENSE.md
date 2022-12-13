@@ -1,6 +1,9 @@
 MIT License
 
 Copyright (c) 2017 Nilanjana Lodh
+Copyright (c) 2017-2022 Till Kamppeter
+Copyright (c) 2020 Priydarshi Singh
+Copyright (c) 2022 Gaurav Guleria
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
