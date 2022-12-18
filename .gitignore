@@ -1,3 +1,5 @@
+*~
+*/*~
 *.o
 *.pdf
 .vscode/
@@ -9,6 +11,8 @@ aclocal.*
 autom4te.cache/
 build-aux/
 configure
+config.guess
+config.sub
 config.log
 config.status
 Makefile
