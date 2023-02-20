@@ -1,4 +1,15 @@
-# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b2 - 2023-02-13
+# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b3 - 2023-02-20
+
+## CHANGES IN V2.0b3 (20th February 2023)
+
+- Add handler for `GetAllTranslations` method and Bug fixes (PR #22)
+  * Fixed bug when backend finds zero printers
+  * Add handler for `GetAllTranslations` method
+  * `get_printer_translations()` fetches translations for all printer
+    strings.
+  * Removed `get_human_readable_option_name()` and
+    `get_human_readable_choice_name()` functions.
+
 
 ## CHANGES IN V2.0b2 (13th February 2023)
 
