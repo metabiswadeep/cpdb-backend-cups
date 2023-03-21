@@ -47,4 +47,5 @@ TESTS = \
 
 EXTRA_DIST = \
         run-tests.sh \
-	test.convs
+	test.convs \
+	testpdf.ppd
