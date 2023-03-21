@@ -1,4 +1,15 @@
-# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b3 - 2023-02-20
+# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b4 - 2023-03-21
+
+## CHANGES IN V2.0b4 (21th March 2023)
+
+- Added test script for `make test`/`make check`
+
+  The script `src/run-tests.sh` starts a private session D-Bus via
+  `dbus-run-session` and therein an own copy of CUPS. It uses the CPDB
+  CUPS backend with this CUPS and tests it using the
+  `cpdb-text-frontend` of cpdb-libs, performing several test tasks on
+  the backend.
+
 
 ## CHANGES IN V2.0b3 (20th February 2023)
 
