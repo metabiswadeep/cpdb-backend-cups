@@ -20,6 +20,9 @@ Makefile.in
 src/.deps
 src/cups
 src/cups-notifier.*
+src/run-tests.sh.log
+src/run-tests.sh.trs
+src/test-suite.log
 data/org.openprinting.Backend.CUPS.service
 tmp/
 */Makefile

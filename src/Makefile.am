@@ -32,3 +32,19 @@ cups_LDADD += $(LIBCUPSFILTERS_LIBS)
 cups_LDADD += $(GLIB_LIBS)
 cups_LDADD += $(GIO_LIBS)
 cups_LDADD += $(GIOUNIX_LIBS)
+
+# ================================
+# Tests ("make test"/"make check")
+# ================================
+
+TESTdir = .
+
+TEST_SCRIPTS = \
+        run-tests.sh
+
+TESTS = \
+        run-tests.sh
+
+EXTRA_DIST = \
+        run-tests.sh \
+	test.convs
