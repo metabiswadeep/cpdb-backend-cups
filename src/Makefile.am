@@ -37,11 +37,6 @@ cups_LDADD += $(GIOUNIX_LIBS)
 # Tests ("make test"/"make check")
 # ================================
 
-TESTdir = .
-
-TEST_SCRIPTS = \
-        run-tests.sh
-
 TESTS = \
         run-tests.sh
 
