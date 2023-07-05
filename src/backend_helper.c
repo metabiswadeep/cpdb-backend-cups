@@ -1232,10 +1232,23 @@ int get_all_media(PrinterCUPS *p, Media **medias)
 		int count = ippGetCount(mdb);
 		for (int i = 0; i < count; i++)
 		{
-			margin = g_new0(Margin, 1);
-			
 			tuple = ippGetCollection(mdb, i);
 			
+			attr = ippFindAttribute(tuple, "media-size", IPP_TAG_BEGIN_COLLECTION);
+			media_size = ippGetCollection(attr, 0);
+			attr = ippFindAttribute(media_size, "x-dimension", IPP_TAG_INTEGER);
+			width = ippGetInteger(attr, 0);
+			attr = ippFindAttribute(media_size, "y-dimension", IPP_TAG_INTEGER);
+			length = ippGetInteger(attr, 0);
+
+			if (width <= 0 || length <= 0)
+			  continue;
+
+			pwg_media = pwgMediaForSize(width, length);
+			name = pwg_media->pwg;
+
+			margin = g_new0(Margin, 1);
+
 			attr = ippFindAttribute(tuple, "media-left-margin", IPP_TAG_INTEGER);
 			margin->left = ippGetInteger(attr, 0);
 			attr = ippFindAttribute(tuple, "media-right-margin", IPP_TAG_INTEGER);
@@ -1244,16 +1257,6 @@ int get_all_media(PrinterCUPS *p, Media **medias)
 			margin->top = ippGetInteger(attr, 0);
 			attr = ippFindAttribute(tuple, "media-bottom-margin", IPP_TAG_INTEGER);
 			margin->bottom = ippGetInteger(attr, 0);
-			
-			attr = ippFindAttribute(tuple, "media-size", IPP_TAG_BEGIN_COLLECTION);
-			media_size = ippGetCollection(attr, 0);
-			attr = ippFindAttribute(media_size, "x-dimension", IPP_TAG_INTEGER);
-			width = ippGetInteger(attr, 0);
-			attr = ippFindAttribute(media_size, "y-dimension", IPP_TAG_INTEGER);
-			length = ippGetInteger(attr, 0);
-			
-			pwg_media = pwgMediaForSize(width, length);
-            name = pwg_media->pwg;
 			
 			margins = g_hash_table_lookup(table, name);
 			margins = g_list_prepend(margins, margin);
