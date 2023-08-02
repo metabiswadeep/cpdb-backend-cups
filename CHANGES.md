@@ -1,4 +1,27 @@
-# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b4 - 2023-03-21
+# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b5 - 2023-08-02
+
+## CHANGES IN V2.0b5 (2nd August 2023)
+
+- Remove CPDB backend info file
+  The frontend libraries now use only the D-Bus to find available
+  backends. This makes sure that everything works also if the frontend
+  and/or any of the backends are installed via sanboxed packaging
+  (like Snap for example) where the components cannot read each
+  other's file systems (PR #26).
+
+- `get_all_media()`: Do not crash on custom page size range entries
+  The media-col-database IPP attribute contains one entry for each
+  valid combination of page size dimensions, margins, and in some
+  cases also media source and media type. Entries for custom page
+  sizes contain ranges instead of single values. `get_all_media()`
+  crashed on these. Now we let the function simply skip them.
+
+- Build system: Removed unnecessary lines in `tools/Makefile.am`
+  Removed the `TESTdir` and `TEST_SCRIPTS` entries in
+  `tools/Makefile.am`.  They are not needed and let `make install` try
+  to install `run-tests.sh` in the source directory, where it already
+  is, causing an error.
+
 
 ## CHANGES IN V2.0b4 (21th March 2023)
 
