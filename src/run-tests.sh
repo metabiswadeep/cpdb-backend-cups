@@ -494,16 +494,6 @@ sleep 2
 #
 
 BACKEND=./cups
-BACKEND_INFO_SOURCE_DIR=../data
-CPDB_BACKEND_INFO_DIR=$BASE
-BACKEND_INFO=org.openprinting.Backend.CUPS
-
-# Set backend info directory and copy the info file to there.
-# In its original place, in the data/ sub-directory it is together
-# with the systemd service file which gets confused as a backend info
-# file by cpdb-libs, therefore we copy it.
-export CPDB_BACKEND_INFO_DIR
-cp $BACKEND_INFO_SOURCE_DIR/$BACKEND_INFO $CPDB_BACKEND_INFO_DIR
 
 # Create the log file
 BACKEND_LOG=$BASE/log/backend_log
