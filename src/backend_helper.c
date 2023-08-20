@@ -111,37 +111,37 @@ Dialog *find_dialog(BackendObj *b, const char *dialog_name)
 int *get_dialog_cancel(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)(g_hash_table_lookup(b->dialogs, dialog_name));
-    return &d->cancel;
+    return (d ? &d->cancel : NULL);
 }
 void set_dialog_cancel(BackendObj *b, const char *dialog_name)
 {
     int *x = get_dialog_cancel(b, dialog_name);
-    *x = 1;
+    if (x) *x = 1;
 }
 void reset_dialog_cancel(BackendObj *b, const char *dialog_name)
 {
     int *x = get_dialog_cancel(b, dialog_name);
-    *x = 0;
+    if (x) *x = 0;
 }
 void set_hide_remote_printers(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)(g_hash_table_lookup(b->dialogs, dialog_name));
-    d->hide_remote = TRUE;
+    if (d) d->hide_remote = TRUE;
 }
 void unset_hide_remote_printers(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)(g_hash_table_lookup(b->dialogs, dialog_name));
-    d->hide_remote = FALSE;
+    if (d) d->hide_remote = FALSE;
 }
 void set_hide_temp_printers(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)(g_hash_table_lookup(b->dialogs, dialog_name));
-    d->hide_temp = TRUE;
+    if (d) d->hide_temp = TRUE;
 }
 void unset_hide_temp_printers(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)(g_hash_table_lookup(b->dialogs, dialog_name));
-    d->hide_temp = FALSE;
+    if (d) d->hide_temp = FALSE;
 }
 
 static int
@@ -451,6 +451,7 @@ void send_printer_state_changed_signal(BackendObj *b, const char *dialog_name, c
 void notify_removed_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table)
 {
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
+    if (!d) return;
 
     GHashTable *prev = d->printers;
     GList *prevlist = g_hash_table_get_keys(prev);
@@ -473,6 +474,8 @@ void notify_added_printers(BackendObj *b, const char *dialog_name, GHashTable *n
 {
     GHashTableIter iter;
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
+    if (!d) return;
+
     GHashTable *prev = d->printers;
     printf("Notifying added printers.\n");
     gpointer printer_name;

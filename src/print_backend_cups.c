@@ -293,7 +293,7 @@ static void on_stop_backend(GDBusConnection *connection,
      * Ignore this signal if the dialog's keep_alive variable is set
      */
     Dialog *d = find_dialog(b, sender_name);
-    if (d->keep_alive)
+    if (d && d->keep_alive)
         return;
 
     set_dialog_cancel(b, sender_name);
