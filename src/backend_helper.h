@@ -101,6 +101,20 @@ typedef struct _Media
 	int (*margins)[4]; /** int margins[num_margins][4]; left(0), right(1), top(2), bottom(3) **/
 } Media;
 
+typedef struct _PrintResult
+{
+    gchar *jobid;
+    gchar *socket;
+} PrintResult;
+
+typedef struct _PrintDataThreadData {
+    PrinterCUPS *printer;
+    int num_options;
+    cups_option_t *options;
+    PrintResult *result;
+    int socket_fd;
+} PrintDataThreadData;
+
 /********Backend related functions*******************/
 
 /** Get a new BackendObj **/
@@ -219,7 +233,8 @@ int get_all_options(PrinterCUPS *p, Option **options);
 int get_all_media(PrinterCUPS *p, Media **medias);
 int add_media_to_options(PrinterCUPS *p, Media *medias, int media_count, Option **options, int count);
 
-int print_file(PrinterCUPS *p, const char *file_path, int num_settings, GVariant *settings);
+static void *print_data_thread(void *data);
+int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result);
 
 int get_active_jobs_count(PrinterCUPS *p);
 gboolean cancel_job(PrinterCUPS *p, int jobid);

@@ -1,4 +1,8 @@
 #include "backend_helper.h"
+#include <pthread.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #define _CUPS_NO_DEPRECATED 1
 
@@ -1444,7 +1448,10 @@ const char *get_printer_state(PrinterCUPS *p)
     }
     return str;
 }
-int print_file(PrinterCUPS *p, const char *file_path, int num_settings, GVariant *settings)
+
+
+
+int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result)
 {
     ensure_printer_connection(p);
     int num_options = 0;
@@ -1469,55 +1476,152 @@ int print_file(PrinterCUPS *p, const char *file_path, int num_settings, GVariant
          */
         num_options = cupsAddOption(option_name, option_value, num_options, &options);
     }
-    char *file_name = cpdbExtractFileName(file_path);
     int job_id = 0;
     cupsCreateDestJob(p->http, p->dest, p->dinfo,
-                      &job_id, file_name, num_options, options);
-    if (job_id)
-    {
-        /** job creation was successful , 
-         * Now let's submit a document 
-         * and start writing data onto it **/
-        printf("Created job %d\n", job_id);
-        http_status_t http_status; /**document creation status **/
-        http_status = cupsStartDestDocument(p->http, p->dest, p->dinfo, job_id,
-                                            file_name, CUPS_FORMAT_AUTO,
-                                            num_options, options, 1);
-        if (http_status == HTTP_STATUS_CONTINUE)
-        {
-            /**Document submitted successfully;
-             * Now write the data onto it**/
-            FILE *fp = fopen(file_path, "rb");
-            size_t bytes;
-            char buffer[65536];
-            /** Read and write the data chunk by chunk **/
-            while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) > 0)
-            {
-                http_status = cupsWriteRequestData(p->http, buffer, bytes);
-                if (http_status != HTTP_STATUS_CONTINUE)
-                {
-                    printf("Error writing print data to server.\n");
-                    break;
-                }
-            }
+                      &job_id, NULL, num_options, options);
 
-            if (cupsFinishDestDocument(p->http, p->dest, p->dinfo) == IPP_STATUS_OK)
-                printf("Document send succeeded.\n");
-            else
-                printf("Document send failed: %s\n",
-                       cupsLastErrorString());
+    
+    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (socket_fd == -1) {
+        perror("Error creating socket");
+        return NULL;
+    }
 
-            fclose(fp);
+    struct sockaddr_un server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sun_family = AF_UNIX;
+    strncpy(server_addr.sun_path, p->cups_socket_path, sizeof(server_addr.sun_path) - 1);
 
-            return job_id; /**some correction needed here **/
+    if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Error connecting to CUPS socket");
+        close(socket_fd);
+        return NULL;
+    }
+
+    // Create a struct to pass data to the thread
+    PrintDataThreadData *thread_data = g_malloc(sizeof(PrintDataThreadData));
+    thread_data->printer = p;
+    thread_data->num_options = num_options;
+    thread_data->options = options;
+    thread_data->result = result;
+    thread_data->socket_fd = socket_fd;
+
+    // Create a thread for handling data transfer to CUPS
+    pthread_t thread;
+    pthread_create(&thread, NULL, print_data_thread, thread_data);
+}
+
+// Function to handle background data transfer to CUPS via socket
+static void *print_data_thread(void *data) {
+    PrintDataThreadData *thread_data = (PrintDataThreadData *)data;
+
+    // Implement the logic to read data from the socket and send it to CUPS
+    char *buffer = g_malloc(1024);  // Allocate dynamic memory for the buffer
+    ssize_t bytesRead;
+
+    // Placeholder logic for reading data from the socket
+    while ((bytesRead = read(thread_data->socket_fd, buffer, 1024)) > 0) {
+        // Send data to CUPS using cupsWriteRequestData
+        http_status_t http_status = cupsWriteRequestData(thread_data->printer->http, buffer, bytesRead);
+        if (http_status != HTTP_STATUS_CONTINUE) {
+            printf("Error writing print data to server.\n");
+            break;
         }
     }
-    else
-    {
-        printf("Unable to create job %s\n", cupsLastErrorString());
-        return 0;
-    }
+
+    // After data transfer is complete, update the PrintResult struct with necessary values
+    thread_data->result->jobid = g_strdup("123");  // Replace with the actual job ID
+    thread_data->result->socket = g_strdup(thread_data->printer->cups_socket_path);
+
+    // Cleanup and free resources
+    close(thread_data->socket_fd);
+    g_free(thread_data->options);
+    g_free(thread_data);
+
+    return NULL;
 }
+
+
+
+
+
+
+
+
+// int print_file(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult result)
+// {
+//     ensure_printer_connection(p);
+//     int num_options = 0;
+//     cups_option_t *options;
+
+//     GVariantIter *iter;
+//     g_variant_get(settings, "a(ss)", &iter);
+
+//     int i = 0;
+//     char *option_name, *option_value;
+//     for (i = 0; i < num_settings; i++)
+//     {
+//         g_variant_iter_loop(iter, "(ss)", &option_name, &option_value);
+//         printf(" %s : %s\n", option_name, option_value);
+
+//         /**
+//          * to do:
+//          * instead of directly adding the option,convert it from the frontend's lingo 
+//          * to the specific lingo of the backend
+//          * 
+//          * use PWG names instead
+//          */
+//         num_options = cupsAddOption(option_name, option_value, num_options, &options);
+//     }
+//     char *file_name = cpdbExtractFileName(file_path);
+//     int job_id = 0;
+//     cupsCreateDestJob(p->http, p->dest, p->dinfo,
+//                       &job_id, file_name, num_options, options);
+//     if (job_id)
+//     {
+//         /** job creation was successful , 
+//          * Now let's submit a document 
+//          * and start writing data onto it **/
+//         printf("Created job %d\n", job_id);
+//         http_status_t http_status; /**document creation status **/
+//         http_status = cupsStartDestDocument(p->http, p->dest, p->dinfo, job_id,
+//                                             file_name, CUPS_FORMAT_AUTO,
+//                                             num_options, options, 1);
+//         if (http_status == HTTP_STATUS_CONTINUE)
+//         {
+//             /**Document submitted successfully;
+//              * Now write the data onto it**/
+//             FILE *fp = fopen(file_path, "rb");
+//             size_t bytes;
+//             char buffer[65536];
+//             /** Read and write the data chunk by chunk **/
+//             while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+//             {
+//                 http_status = cupsWriteRequestData(p->http, buffer, bytes);
+//                 if (http_status != HTTP_STATUS_CONTINUE)
+//                 {
+//                     printf("Error writing print data to server.\n");
+//                     break;
+//                 }
+//             }
+
+//             if (cupsFinishDestDocument(p->http, p->dest, p->dinfo) == IPP_STATUS_OK)
+//                 printf("Document send succeeded.\n");
+//             else
+//                 printf("Document send failed: %s\n",
+//                        cupsLastErrorString());
+
+//             fclose(fp);
+
+//             return job_id; /**some correction needed here **/
+//         }
+//     }
+//     else
+//     {
+//         printf("Unable to create job %s\n", cupsLastErrorString());
+//         return 0;
+//     }
+// }
 int get_active_jobs_count(PrinterCUPS *p)
 {
     ensure_printer_connection(p);
