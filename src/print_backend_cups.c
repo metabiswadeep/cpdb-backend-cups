@@ -461,9 +461,6 @@ static gboolean on_handle_ping(PrintBackend *interface,
     return TRUE;
 }
 
-
-
-
 static gboolean on_handle_print_file(PrintBackend *interface,
                                      GDBusMethodInvocation *invocation,
                                      const gchar *printer_id,
@@ -497,43 +494,6 @@ static gboolean on_handle_print_file(PrintBackend *interface,
 
     return TRUE;
 }
-
-
-
-
-
-
-// static gboolean on_handle_print_file(PrintBackend *interface,
-//                                      GDBusMethodInvocation *invocation,
-//                                      const gchar *printer_name,
-//                                      const gchar *file_path,
-//                                      int num_settings,
-//                                      GVariant *settings,
-//                                      const gchar *final_file_path,
-//                                      gpointer user_data)
-// {
-//     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
-//     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
-
-//     int job_id = print_file(p, file_path, num_settings, settings);
-
-//     char jobid_string[64];
-//     snprintf(jobid_string, sizeof(jobid_string), "%d", job_id);
-//     print_backend_complete_print_file(interface, invocation, jobid_string);
-
-//     /**
-//      * (Currently Disabled) Printing will always be the last operation, so remove that frontend
-//      */
-//     //set_dialog_cancel(b, dialog_name);
-//     //remove_frontend(b, dialog_name);
-
-//     if (no_frontends(b))
-//     {
-//         g_message("No frontends connected .. exiting backend.\n");
-//         exit(EXIT_SUCCESS);
-//     }
-//     return TRUE;
-// }
 
 static gboolean on_handle_get_all_options(PrintBackend *interface,
                                           GDBusMethodInvocation *invocation,
