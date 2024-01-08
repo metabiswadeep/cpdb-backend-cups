@@ -222,7 +222,7 @@ int create_subscription ()
         return (0);
     }
 
-    req = ippNewRequest(IPP_CREATE_PRINTER_SUBSCRIPTION);
+    req = ippNewRequest(IPP_OP_CREATE_PRINTER_SUBSCRIPTIONS);
     ippAddString(req, IPP_TAG_OPERATION, IPP_TAG_URI,
                 "printer-uri", NULL, "/");
     ippAddString(req, IPP_TAG_SUBSCRIPTION, IPP_TAG_KEYWORD,
@@ -270,7 +270,7 @@ gboolean renew_subscription (int id)
         return FALSE;
     }
 
-    req = ippNewRequest(IPP_RENEW_SUBSCRIPTION);
+    req = ippNewRequest(IPP_OP_RENEW_SUBSCRIPTION);
     ippAddInteger(req, IPP_TAG_OPERATION, IPP_TAG_INTEGER,
                     "notify-subscription-id", id);
     ippAddString(req, IPP_TAG_OPERATION, IPP_TAG_URI,
@@ -326,7 +326,7 @@ void cancel_subscription (int id)
         return;
     }
 
-    req = ippNewRequest(IPP_CANCEL_SUBSCRIPTION);
+    req = ippNewRequest(IPP_OP_CANCEL_SUBSCRIPTION);
     ippAddString(req, IPP_TAG_OPERATION, IPP_TAG_URI,
                     "printer-uri", NULL, "/");
     ippAddInteger(req, IPP_TAG_OPERATION, IPP_TAG_INTEGER,
@@ -547,58 +547,6 @@ cups_dest_t *get_dest_by_name(BackendObj *b, const char *dialog_name, const char
         printf("Printer '%s' does not exist for the dialog %s.\n", printer_name, dialog_name);
     }
     return p->dest;
-}
-GVariant *get_all_jobs(BackendObj *b, const char *dialog_name, int *num_jobs, gboolean active_only)
-{
-    int CUPS_JOB_FLAG;
-    if (active_only)
-        CUPS_JOB_FLAG = CUPS_WHICHJOBS_ACTIVE;
-    else
-        CUPS_JOB_FLAG = CUPS_WHICHJOBS_ALL;
-
-    GHashTable *printers = get_dialog_printers(b, dialog_name);
-
-    GVariantBuilder *builder;
-    GVariant *variant;
-    builder = g_variant_builder_new(G_VARIANT_TYPE(CPDB_JOB_ARRAY_ARGS));
-
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, printers);
-
-    int ncurr = 0;
-    int n = 0;
-
-    int num_printers = g_hash_table_size(printers);
-    cups_job_t **jobs = g_new(cups_job_t *, num_printers);
-
-    int i_printer = 0;
-    while (g_hash_table_iter_next(&iter, &key, &value))
-    {
-        /** iterate over all the printers of this dialog **/
-        PrinterCUPS *p = (PrinterCUPS *)value;
-        ensure_printer_connection(p);
-        printf(" .. %s ..", p->name);
-        /**This is NOT reporting jobs for ipp printers : Probably a bug in cupsGetJobs2:(( **/
-        ncurr = cupsGetJobs2(p->http, &(jobs[i_printer]), p->name, 0, CUPS_JOB_FLAG);
-        printf("%d\n", ncurr);
-        n += ncurr;
-
-        for (int i = 0; i < ncurr; i++)
-        {
-            printf("i = %d\n", i);
-            printf("%d %s\n", jobs[i_printer][i].id, jobs[i_printer][i].title);
-
-            g_variant_builder_add_value(builder, pack_cups_job(jobs[i_printer][i]));
-        }
-        cupsFreeJobs(ncurr, jobs[i_printer]);
-        i_printer++;
-    }
-    free(jobs);
-
-    *num_jobs = n;
-    variant = g_variant_new(CPDB_JOB_ARRAY_ARGS, builder);
-    return variant;
 }
 /***************************PrinterObj********************************/
 PrinterCUPS *get_new_PrinterCUPS(const cups_dest_t *dest)
@@ -1461,7 +1409,7 @@ int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResu
     g_variant_get(settings, "a(ss)", &iter);
 
     int i = 0;
-    char *option_name, *option_value;
+    char *option_name, *option_value, *socket_path;
     for (i = 0; i < num_settings; i++)
     {
         g_variant_iter_loop(iter, "(ss)", &option_name, &option_value);
@@ -1487,11 +1435,13 @@ int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResu
         return NULL;
     }
 
+    socket_path = (char *)malloc(256);
+    snprintf(socket_path, 256, "$HOME/cpdb/sockets/cups-%d.sock", job_id);
+    p->stream_socket_path = socket_path;
     struct sockaddr_un server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
-    strncpy(server_addr.sun_path, p->cups_socket_path, sizeof(server_addr.sun_path) - 1);
-
+    strncpy(server_addr.sun_path, p->stream_socket_path, sizeof(server_addr.sun_path) - 1);
     if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("Error connecting to CUPS socket");
         close(socket_fd);
@@ -1531,7 +1481,7 @@ static void *print_data_thread(void *data) {
 
     // After data transfer is complete, update the PrintResult struct with necessary values
     thread_data->result->jobid = g_strdup("123");  // Replace with the actual job ID
-    thread_data->result->socket = g_strdup(thread_data->printer->cups_socket_path);
+    thread_data->result->socket = g_strdup(thread_data->printer->stream_socket_path);
 
     // Cleanup and free resources
     close(thread_data->socket_fd);
@@ -1541,22 +1491,6 @@ static void *print_data_thread(void *data) {
     return NULL;
 }
 
-int get_active_jobs_count(PrinterCUPS *p)
-{
-    ensure_printer_connection(p);
-    cups_job_t *jobs;
-    int num_jobs = cupsGetJobs2(p->http, &jobs, p->name, 0, CUPS_WHICHJOBS_ACTIVE);
-    cupsFreeJobs(num_jobs, jobs);
-    return num_jobs;
-}
-gboolean cancel_job(PrinterCUPS *p, int jobid)
-{
-    ensure_printer_connection(p);
-    ipp_status_t status = cupsCancelDestJob(p->http, p->dest, jobid);
-    if (status == IPP_STATUS_OK)
-        return TRUE;
-    return FALSE;
-}
 void printAllJobs(PrinterCUPS *p)
 {
     ensure_printer_connection(p);

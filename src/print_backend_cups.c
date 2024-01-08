@@ -461,7 +461,7 @@ static gboolean on_handle_ping(PrintBackend *interface,
     return TRUE;
 }
 
-static gboolean on_handle_print_file(PrintBackend *interface,
+static gboolean on_handle_print_socket(PrintBackend *interface,
                                      GDBusMethodInvocation *invocation,
                                      const gchar *printer_id,
                                      int num_settings,
@@ -535,41 +535,6 @@ static gboolean on_handle_get_all_options(PrintBackend *interface,
     return TRUE;
 }
 
-static gboolean on_handle_get_active_jobs_count(PrintBackend *interface,
-                                                GDBusMethodInvocation *invocation,
-                                                const gchar *printer_name,
-                                                gpointer user_data)
-{
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
-    PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
-    print_backend_complete_get_active_jobs_count(interface, invocation, get_active_jobs_count(p));
-    return TRUE;
-}
-static gboolean on_handle_get_all_jobs(PrintBackend *interface,
-                                       GDBusMethodInvocation *invocation,
-                                       gboolean active_only,
-                                       gpointer user_data)
-{
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
-    int n;
-    GVariant *variant = get_all_jobs(b, dialog_name, &n, active_only);
-    print_backend_complete_get_all_jobs(interface, invocation, n, variant);
-    return TRUE;
-}
-static gboolean on_handle_cancel_job(PrintBackend *interface,
-                                     GDBusMethodInvocation *invocation,
-                                     const gchar *job_id,
-                                     const gchar *printer_name,
-                                     gpointer user_data)
-{
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
-    int jobid = atoi(job_id); /**to do. check if given job id is integer */
-    PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
-    gboolean status = cancel_job(p, jobid);
-    print_backend_complete_cancel_job(interface, invocation, status);
-    return TRUE;
-}
-
 static gboolean on_handle_get_default_printer(PrintBackend *interface,
                                               GDBusMethodInvocation *invocation,
                                               gpointer user_data)
@@ -627,7 +592,7 @@ void connect_to_signals()
                      NULL);
     g_signal_connect(skeleton,                         //instance
                      "handle-print-file",              //signal name
-                     G_CALLBACK(on_handle_print_file), //callback
+                     G_CALLBACK(on_handle_print_socket), //callback
                      NULL);
     g_signal_connect(skeleton,                                //instance
                      "handle-get-printer-state",              //signal name
@@ -636,18 +601,6 @@ void connect_to_signals()
     g_signal_connect(skeleton,                                //instance
                      "handle-is-accepting-jobs",              //signal name
                      G_CALLBACK(on_handle_is_accepting_jobs), //callback
-                     NULL);
-    g_signal_connect(skeleton,                                    //instance
-                     "handle-get-active-jobs-count",              //signal name
-                     G_CALLBACK(on_handle_get_active_jobs_count), //callback
-                     NULL);
-    g_signal_connect(skeleton,                           //instance
-                     "handle-get-all-jobs",              //signal name
-                     G_CALLBACK(on_handle_get_all_jobs), //callback
-                     NULL);
-    g_signal_connect(skeleton,                         //instance
-                     "handle-cancel-job",              //signal name
-                     G_CALLBACK(on_handle_cancel_job), //callback
                      NULL);
     g_signal_connect(skeleton,                         //instance
                      "handle-keep-alive",              //signal name

@@ -39,6 +39,7 @@ typedef struct _PrinterCUPS
     cups_dest_t *dest;
     http_t *http;
     cups_dinfo_t *dinfo;
+    char *stream_socket_path;
 } PrinterCUPS;
 
 /**
@@ -206,7 +207,6 @@ void refresh_printer_list(BackendObj *b, char *dialog_name);
 GHashTable *get_dialog_printers(BackendObj *b, const char *dialog_name);
 cups_dest_t *get_dest_by_name(BackendObj *b, const char *dialog_name, const char *printer_name);
 PrinterCUPS *get_printer_by_name(BackendObj *b, const char *dialog_name, const char *printer_name);
-GVariant *get_all_jobs(BackendObj *b, const char *dialog_name, int *num_jobs, gboolean active_only);
 
 /*********Printer related functions******************/
 
@@ -236,8 +236,6 @@ int add_media_to_options(PrinterCUPS *p, Media *medias, int media_count, Option 
 static void *print_data_thread(void *data);
 int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result);
 
-int get_active_jobs_count(PrinterCUPS *p);
-gboolean cancel_job(PrinterCUPS *p, int jobid);
 
 /**
  * Get translation of choice name for a given locale
