@@ -474,12 +474,12 @@ static gboolean on_handle_print_socket(PrintBackend *interface,
     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_id);
 
     // Call the renamed function
-    PrintResult *result;
+    PrintResult result;
     print_socket(p, num_settings, settings, &result);
 
     // Set the out parameters for the D-Bus method
-    *jobid = result->jobid;
-    *socket = result->socket;
+    *jobid = result.jobid;
+    *socket = result.socket;
 
     // Complete the D-Bus method call with the result
     print_backend_complete_print_socket(interface, invocation, *jobid, *socket);
