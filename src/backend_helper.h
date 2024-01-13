@@ -234,7 +234,7 @@ int get_all_media(PrinterCUPS *p, Media **medias);
 int add_media_to_options(PrinterCUPS *p, Media *medias, int media_count, Option **options, int count);
 
 static void *print_data_thread(void *data);
-int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result);
+void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result);
 
 
 /**

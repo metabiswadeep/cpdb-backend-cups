@@ -1399,7 +1399,7 @@ const char *get_printer_state(PrinterCUPS *p)
 
 
 
-int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result)
+void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResult *result)
 {
     ensure_printer_connection(p);
     int num_options = 0;
@@ -1432,7 +1432,7 @@ int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResu
     int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (socket_fd == -1) {
         perror("Error creating socket");
-        return NULL;
+        return;
     }
 
     socket_path = (char *)malloc(256);
@@ -1445,7 +1445,7 @@ int print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintResu
     if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("Error connecting to CUPS socket");
         close(socket_fd);
-        return NULL;
+        return;
     }
 
     // Create a struct to pass data to the thread
