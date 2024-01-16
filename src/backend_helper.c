@@ -1409,7 +1409,7 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintRes
     g_variant_get(settings, "a(ss)", &iter);
 
     int i = 0;
-    char *option_name, *option_value, *socket_path;
+    char *option_name, *option_value, job_id_str[32], *socket_path;
     for (i = 0; i < num_settings; i++)
     {
         g_variant_iter_loop(iter, "(ss)", &option_name, &option_value);
@@ -1436,7 +1436,9 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintRes
     }
 
     socket_path = (char *)malloc(256);
-    snprintf(socket_path, 256, "$HOME/cpdb/sockets/cups-%d.sock", job_id);
+    snprintf(job_id_str, sizeof(job_id_str), "%d", job_id);
+    snprintf(socket_path, 256,
+	     "$HOME/cpdb/sockets/cups-%s.sock", job_id_str);
     p->stream_socket_path = socket_path;
     struct sockaddr_un server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
@@ -1448,12 +1450,15 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, PrintRes
         return;
     }
 
+    // Update the PrintResult struct with necessary values
+    result->jobid = g_strdup(job_id_str);  // Replace with the actual job ID
+    result->socket = g_strdup(p->stream_socket_path);
+
     // Create a struct to pass data to the thread
     PrintDataThreadData *thread_data = g_malloc(sizeof(PrintDataThreadData));
     thread_data->printer = p;
     thread_data->num_options = num_options;
     thread_data->options = options;
-    thread_data->result = result;
     thread_data->socket_fd = socket_fd;
 
     // Create a thread for handling data transfer to CUPS
@@ -1478,10 +1483,6 @@ static void *print_data_thread(void *data) {
             break;
         }
     }
-
-    // After data transfer is complete, update the PrintResult struct with necessary values
-    thread_data->result->jobid = g_strdup("123");  // Replace with the actual job ID
-    thread_data->result->socket = g_strdup(thread_data->printer->stream_socket_path);
 
     // Cleanup and free resources
     close(thread_data->socket_fd);

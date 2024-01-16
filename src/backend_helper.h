@@ -112,7 +112,6 @@ typedef struct _PrintDataThreadData {
     PrinterCUPS *printer;
     int num_options;
     cups_option_t *options;
-    PrintResult *result;
     int socket_fd;
 } PrintDataThreadData;
 

@@ -591,7 +591,7 @@ void connect_to_signals()
                      G_CALLBACK(on_handle_get_default_printer), //callback
                      NULL);
     g_signal_connect(skeleton,                         //instance
-                     "handle-print-file",              //signal name
+                     "handle-print-socket",              //signal name
                      G_CALLBACK(on_handle_print_socket), //callback
                      NULL);
     g_signal_connect(skeleton,                                //instance
