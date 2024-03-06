@@ -27,8 +27,6 @@ fi
 
 clean_up()
 {
-    #return
-
     #
     # Shut down all the daemons
     #
@@ -118,6 +116,7 @@ clean_up()
     # Remove test bed directories
     #
 
+    #return
     if test -n "$BASE"; then
 	rm -rf $BASE
     fi
@@ -495,10 +494,17 @@ sleep 2
 
 BACKEND=./cups
 
+# Directory for job transfer sockets
+mkdir $BASE/cpdb
+mkdir $BASE/cpdb/sockets
+
 # Create the log file
 BACKEND_LOG=$BASE/log/backend_log
 rm -f $BACKEND_LOG
 touch $BACKEND_LOG
+
+# Debug logging for CPDB
+export CPDB_DEBUG_LEVEL=debug
 
 echo "Starting CPDB CUPS backend:"
 echo "    $runcups $BACKEND >$BACKEND_LOG 2>&1 &"

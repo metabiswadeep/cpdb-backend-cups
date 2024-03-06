@@ -461,35 +461,25 @@ static gboolean on_handle_ping(PrintBackend *interface,
     return TRUE;
 }
 
-static gboolean on_handle_print_file(PrintBackend *interface,
+static gboolean on_handle_print_socket(PrintBackend *interface,
                                      GDBusMethodInvocation *invocation,
-                                     const gchar *printer_name,
-                                     const gchar *file_path,
+                                     const gchar *printer_id,
                                      int num_settings,
                                      GVariant *settings,
-                                     const gchar *final_file_path,
+                                     const gchar *title,
                                      gpointer user_data)
 {
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
-    PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
+    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+    PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_id);
 
-    int job_id = print_file(p, file_path, num_settings, settings);
+    // Call the renamed function
+    char jobid[32];
+    char socket[256];
+    print_socket(p, num_settings, settings, jobid, socket, title);
 
-    char jobid_string[64];
-    snprintf(jobid_string, sizeof(jobid_string), "%d", job_id);
-    print_backend_complete_print_file(interface, invocation, jobid_string);
+    // Complete the D-Bus method call with the result
+    print_backend_complete_print_socket(interface, invocation, jobid, socket);
 
-    /**
-     * (Currently Disabled) Printing will always be the last operation, so remove that frontend
-     */
-    //set_dialog_cancel(b, dialog_name);
-    //remove_frontend(b, dialog_name);
-
-    if (no_frontends(b))
-    {
-        g_message("No frontends connected .. exiting backend.\n");
-        exit(EXIT_SUCCESS);
-    }
     return TRUE;
 }
 
@@ -530,41 +520,6 @@ static gboolean on_handle_get_all_options(PrintBackend *interface,
     
     print_backend_complete_get_all_options(interface, invocation, count, variant, media_count, media_variant);
     free_options(count, options);
-    return TRUE;
-}
-
-static gboolean on_handle_get_active_jobs_count(PrintBackend *interface,
-                                                GDBusMethodInvocation *invocation,
-                                                const gchar *printer_name,
-                                                gpointer user_data)
-{
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
-    PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
-    print_backend_complete_get_active_jobs_count(interface, invocation, get_active_jobs_count(p));
-    return TRUE;
-}
-static gboolean on_handle_get_all_jobs(PrintBackend *interface,
-                                       GDBusMethodInvocation *invocation,
-                                       gboolean active_only,
-                                       gpointer user_data)
-{
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
-    int n;
-    GVariant *variant = get_all_jobs(b, dialog_name, &n, active_only);
-    print_backend_complete_get_all_jobs(interface, invocation, n, variant);
-    return TRUE;
-}
-static gboolean on_handle_cancel_job(PrintBackend *interface,
-                                     GDBusMethodInvocation *invocation,
-                                     const gchar *job_id,
-                                     const gchar *printer_name,
-                                     gpointer user_data)
-{
-    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
-    int jobid = atoi(job_id); /**to do. check if given job id is integer */
-    PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
-    gboolean status = cancel_job(p, jobid);
-    print_backend_complete_cancel_job(interface, invocation, status);
     return TRUE;
 }
 
@@ -624,8 +579,8 @@ void connect_to_signals()
                      G_CALLBACK(on_handle_get_default_printer), //callback
                      NULL);
     g_signal_connect(skeleton,                         //instance
-                     "handle-print-file",              //signal name
-                     G_CALLBACK(on_handle_print_file), //callback
+                     "handle-print-socket",              //signal name
+                     G_CALLBACK(on_handle_print_socket), //callback
                      NULL);
     g_signal_connect(skeleton,                                //instance
                      "handle-get-printer-state",              //signal name
@@ -634,18 +589,6 @@ void connect_to_signals()
     g_signal_connect(skeleton,                                //instance
                      "handle-is-accepting-jobs",              //signal name
                      G_CALLBACK(on_handle_is_accepting_jobs), //callback
-                     NULL);
-    g_signal_connect(skeleton,                                    //instance
-                     "handle-get-active-jobs-count",              //signal name
-                     G_CALLBACK(on_handle_get_active_jobs_count), //callback
-                     NULL);
-    g_signal_connect(skeleton,                           //instance
-                     "handle-get-all-jobs",              //signal name
-                     G_CALLBACK(on_handle_get_all_jobs), //callback
-                     NULL);
-    g_signal_connect(skeleton,                         //instance
-                     "handle-cancel-job",              //signal name
-                     G_CALLBACK(on_handle_cancel_job), //callback
                      NULL);
     g_signal_connect(skeleton,                         //instance
                      "handle-keep-alive",              //signal name
