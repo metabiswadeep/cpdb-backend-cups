@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #define _CUPS_NO_DEPRECATED 1
 
@@ -1437,7 +1438,12 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
         perror("Error creating socket");
         return;
     }
-
+    char mkdir_cmd[256];
+    snprintf(mkdir_cmd, 256,
+	     "mkdir -p %s/cpdb/sockets", getenv("HOME"));
+    if (system(mkdir_cmd)!=0){
+        perror("Unable to create the sockets directory");
+    }
     int socket_option = 1;
     setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &socket_option, sizeof(socket_option));
 
@@ -1448,12 +1454,9 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
     struct sockaddr_un server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
-    fprintf(stderr, "XXX8: |%s|%s|\n", job_id_str, socket_path);
     strncpy(server_addr.sun_path, socket_path, sizeof(server_addr.sun_path) - 1);
-    fprintf(stderr, "XXX9: |%s|\n", server_addr.sun_path);
 
     unlink(socket_path);
-    fprintf(stderr, "XXX10: %ld %ld\n", sizeof(server_addr), sizeof(struct sockaddr_un));
 
     if (bind(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("Error connecting to CPDB CUPS backend socket");
@@ -1469,7 +1472,6 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
         close(socket_fd);
     }
     
-    fprintf(stderr, "XXX23\n");
     // Create a struct to pass data to the thread
     PrintDataThreadData *thread_data = g_malloc(sizeof(PrintDataThreadData));
     thread_data->printer = p;
@@ -1479,21 +1481,15 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
 
     // Create a thread for handling data transfer to CUPS
     pthread_t thread;
-    fprintf(stderr, "XXX30\n");
     if (pthread_create(&thread, NULL, print_data_thread, thread_data) != 0) {
-    fprintf(stderr, "XXX31\n");
         perror("Error creating thread");
         close(socket_fd);
     } else {
-    fprintf(stderr, "XXX40\n");
         // Detach the thread to allow it to run independently
         pthread_detach(thread);
-    fprintf(stderr, "XXX41\n");
 	}
     
 
-    fprintf(stderr, "XXX50\n");
-    fprintf(stderr, "XXX51\n");
 }
 
 void *print_data_thread(void *data) {
@@ -1503,12 +1499,9 @@ void *print_data_thread(void *data) {
     char *buffer = g_malloc(1024);
 
     // Accept incoming connections
-    fprintf(stderr, "XXX20\n");
     int client_fd = accept(thread_data->socket_fd, NULL, NULL);
-    fprintf(stderr, "XXX21\n");
     if (client_fd == -1) {
         perror("Error accepting connection");
-	fprintf(stderr, "XXX22\n");
         close(thread_data->socket_fd);
     }
 
@@ -1517,13 +1510,11 @@ void *print_data_thread(void *data) {
     while ((bytesRead = read(client_fd, buffer, 1024)) > 0) {
         // Send data to CUPS using cupsWriteRequestData
         http_status_t http_status = cupsWriteRequestData(thread_data->printer->http, buffer, bytesRead);
-	fprintf(stderr, "XXX23: %ld\n", bytesRead);
         if (http_status != HTTP_STATUS_CONTINUE) {
             printf("Error writing print data to server.\n");
             break;
         }
     }
-    fprintf(stderr, "XXX24\n");
 
     // Cleanup and free resources
     close(thread_data->socket_fd);
@@ -1533,7 +1524,6 @@ void *print_data_thread(void *data) {
     cupsFreeOptions(thread_data->num_options, thread_data->options);
     g_free(thread_data);
     g_free(buffer);
-    fprintf(stderr, "XXX25\n");
 
     return NULL;
 }
