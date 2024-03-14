@@ -1443,6 +1443,7 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
 	     "mkdir -p %s/cpdb/sockets", getenv("HOME"));
     if (system(mkdir_cmd)!=0){
         perror("Unable to create the sockets directory");
+        return;
     }
     int socket_option = 1;
     setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &socket_option, sizeof(socket_option));
