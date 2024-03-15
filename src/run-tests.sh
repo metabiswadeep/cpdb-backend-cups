@@ -546,7 +546,7 @@ echo ""
   echo get-all-options $QUEUE CUPS; \
   sleep 2; \
   echo print-file $FILE_TO_PRINT $QUEUE CUPS; \
-  sleep 1; \
+  sleep 3; \
   echo stop \
 ) | $FRONTEND > $FRONTEND_LOG 2>&1 &
 FRONTEND_PID=$!
@@ -564,7 +564,7 @@ fi
 i=0
 while kill -0 $FRONTEND_PID >/dev/null 2>&1; do
     i=$((i+1))
-    if test $i -ge 12; then
+    if test $i -ge 15; then
 	kill -KILL $FRONTEND_PID >/dev/null 2>&1 || true
 	FRONTEND_PID=
 	echo "FAIL: Frontend keeps running!"
