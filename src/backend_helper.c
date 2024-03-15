@@ -1,4 +1,9 @@
 #include "backend_helper.h"
+#include <pthread.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #define _CUPS_NO_DEPRECATED 1
 
@@ -218,7 +223,7 @@ int create_subscription ()
         return (0);
     }
 
-    req = ippNewRequest(IPP_CREATE_PRINTER_SUBSCRIPTION);
+    req = ippNewRequest(IPP_OP_CREATE_PRINTER_SUBSCRIPTIONS);
     ippAddString(req, IPP_TAG_OPERATION, IPP_TAG_URI,
                 "printer-uri", NULL, "/");
     ippAddString(req, IPP_TAG_SUBSCRIPTION, IPP_TAG_KEYWORD,
@@ -266,7 +271,7 @@ gboolean renew_subscription (int id)
         return FALSE;
     }
 
-    req = ippNewRequest(IPP_RENEW_SUBSCRIPTION);
+    req = ippNewRequest(IPP_OP_RENEW_SUBSCRIPTION);
     ippAddInteger(req, IPP_TAG_OPERATION, IPP_TAG_INTEGER,
                     "notify-subscription-id", id);
     ippAddString(req, IPP_TAG_OPERATION, IPP_TAG_URI,
@@ -322,7 +327,7 @@ void cancel_subscription (int id)
         return;
     }
 
-    req = ippNewRequest(IPP_CANCEL_SUBSCRIPTION);
+    req = ippNewRequest(IPP_OP_CANCEL_SUBSCRIPTION);
     ippAddString(req, IPP_TAG_OPERATION, IPP_TAG_URI,
                     "printer-uri", NULL, "/");
     ippAddInteger(req, IPP_TAG_OPERATION, IPP_TAG_INTEGER,
@@ -544,58 +549,6 @@ cups_dest_t *get_dest_by_name(BackendObj *b, const char *dialog_name, const char
     }
     return p->dest;
 }
-GVariant *get_all_jobs(BackendObj *b, const char *dialog_name, int *num_jobs, gboolean active_only)
-{
-    int CUPS_JOB_FLAG;
-    if (active_only)
-        CUPS_JOB_FLAG = CUPS_WHICHJOBS_ACTIVE;
-    else
-        CUPS_JOB_FLAG = CUPS_WHICHJOBS_ALL;
-
-    GHashTable *printers = get_dialog_printers(b, dialog_name);
-
-    GVariantBuilder *builder;
-    GVariant *variant;
-    builder = g_variant_builder_new(G_VARIANT_TYPE(CPDB_JOB_ARRAY_ARGS));
-
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, printers);
-
-    int ncurr = 0;
-    int n = 0;
-
-    int num_printers = g_hash_table_size(printers);
-    cups_job_t **jobs = g_new(cups_job_t *, num_printers);
-
-    int i_printer = 0;
-    while (g_hash_table_iter_next(&iter, &key, &value))
-    {
-        /** iterate over all the printers of this dialog **/
-        PrinterCUPS *p = (PrinterCUPS *)value;
-        ensure_printer_connection(p);
-        printf(" .. %s ..", p->name);
-        /**This is NOT reporting jobs for ipp printers : Probably a bug in cupsGetJobs2:(( **/
-        ncurr = cupsGetJobs2(p->http, &(jobs[i_printer]), p->name, 0, CUPS_JOB_FLAG);
-        printf("%d\n", ncurr);
-        n += ncurr;
-
-        for (int i = 0; i < ncurr; i++)
-        {
-            printf("i = %d\n", i);
-            printf("%d %s\n", jobs[i_printer][i].id, jobs[i_printer][i].title);
-
-            g_variant_builder_add_value(builder, pack_cups_job(jobs[i_printer][i]));
-        }
-        cupsFreeJobs(ncurr, jobs[i_printer]);
-        i_printer++;
-    }
-    free(jobs);
-
-    *num_jobs = n;
-    variant = g_variant_new(CPDB_JOB_ARRAY_ARGS, builder);
-    return variant;
-}
 /***************************PrinterObj********************************/
 PrinterCUPS *get_new_PrinterCUPS(const cups_dest_t *dest)
 {
@@ -614,6 +567,7 @@ PrinterCUPS *get_new_PrinterCUPS(const cups_dest_t *dest)
     p->name = dest_copy->name;
     p->http = NULL;
     p->dinfo = NULL;
+    p->stream_socket_path = NULL;
 
     return p;
 }
@@ -1444,7 +1398,10 @@ const char *get_printer_state(PrinterCUPS *p)
     }
     return str;
 }
-int print_file(PrinterCUPS *p, const char *file_path, int num_settings, GVariant *settings)
+
+
+
+void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *job_id_str, char *socket_path, const char *title)
 {
     ensure_printer_connection(p);
     int num_options = 0;
@@ -1469,71 +1426,110 @@ int print_file(PrinterCUPS *p, const char *file_path, int num_settings, GVariant
          */
         num_options = cupsAddOption(option_name, option_value, num_options, &options);
     }
-    char *file_name = cpdbExtractFileName(file_path);
     int job_id = 0;
     cupsCreateDestJob(p->http, p->dest, p->dinfo,
-                      &job_id, file_name, num_options, options);
-    if (job_id)
-    {
-        /** job creation was successful , 
-         * Now let's submit a document 
-         * and start writing data onto it **/
-        printf("Created job %d\n", job_id);
-        http_status_t http_status; /**document creation status **/
-        http_status = cupsStartDestDocument(p->http, p->dest, p->dinfo, job_id,
-                                            file_name, CUPS_FORMAT_AUTO,
-                                            num_options, options, 1);
-        if (http_status == HTTP_STATUS_CONTINUE)
-        {
-            /**Document submitted successfully;
-             * Now write the data onto it**/
-            FILE *fp = fopen(file_path, "rb");
-            size_t bytes;
-            char buffer[65536];
-            /** Read and write the data chunk by chunk **/
-            while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) > 0)
-            {
-                http_status = cupsWriteRequestData(p->http, buffer, bytes);
-                if (http_status != HTTP_STATUS_CONTINUE)
-                {
-                    printf("Error writing print data to server.\n");
-                    break;
-                }
-            }
+                      &job_id, title, num_options, options);
+    cupsStartDestDocument(p->http, p->dest, p->dinfo,
+			  job_id, NULL, CUPS_FORMAT_AUTO,
+			  num_options, options, 1);
 
-            if (cupsFinishDestDocument(p->http, p->dest, p->dinfo) == IPP_STATUS_OK)
-                printf("Document send succeeded.\n");
-            else
-                printf("Document send failed: %s\n",
-                       cupsLastErrorString());
+    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (socket_fd == -1) {
+        perror("Error creating socket");
+        return;
+    }
+    char mkdir_cmd[256];
+    snprintf(mkdir_cmd, 256,
+	     "mkdir -p %s/cpdb/sockets", getenv("HOME"));
+    if (system(mkdir_cmd)!=0){
+        perror("Unable to create the sockets directory");
+        return;
+    }
+    int socket_option = 1;
+    setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &socket_option, sizeof(socket_option));
 
-            fclose(fp);
+    snprintf(job_id_str, 32, "%d", job_id);
+    snprintf(socket_path, 256,
+	     "%s/cpdb/sockets/cups-%s.sock", getenv("HOME"),job_id_str);
+    p->stream_socket_path = socket_path;
+    struct sockaddr_un server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sun_family = AF_UNIX;
+    strncpy(server_addr.sun_path, socket_path, sizeof(server_addr.sun_path) - 1);
 
-            return job_id; /**some correction needed here **/
+    unlink(socket_path);
+
+    if (bind(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Error connecting to CPDB CUPS backend socket");
+        close(socket_fd);
+        return;
+    }
+
+    // Listen for incoming connections, we only need to support one
+    // single connection (no queue), as the socket is dedicated for a single
+    // job.
+    if (listen(socket_fd, 1) == -1) {
+        perror("Error listening to CPDB CUPS backend socket");
+        close(socket_fd);
+    }
+    
+    // Create a struct to pass data to the thread
+    PrintDataThreadData *thread_data = g_malloc(sizeof(PrintDataThreadData));
+    thread_data->printer = p;
+    thread_data->num_options = num_options;
+    thread_data->options = options;
+    thread_data->socket_fd = socket_fd;
+
+    // Create a thread for handling data transfer to CUPS
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, print_data_thread, thread_data) != 0) {
+        perror("Error creating thread");
+        close(socket_fd);
+    } else {
+        // Detach the thread to allow it to run independently
+        pthread_detach(thread);
+	}
+    
+
+}
+
+void *print_data_thread(void *data) {
+    PrintDataThreadData *thread_data = (PrintDataThreadData *)data;
+
+    // Allocate dynamic memory for the buffer within the thread
+    char *buffer = g_malloc(1024);
+
+    // Accept incoming connections
+    int client_fd = accept(thread_data->socket_fd, NULL, NULL);
+    if (client_fd == -1) {
+        perror("Error accepting connection");
+        close(thread_data->socket_fd);
+    }
+
+    // Placeholder logic for reading data from the socket
+    ssize_t bytesRead;
+    while ((bytesRead = read(client_fd, buffer, 1024)) > 0) {
+        // Send data to CUPS using cupsWriteRequestData
+        http_status_t http_status = cupsWriteRequestData(thread_data->printer->http, buffer, bytesRead);
+        if (http_status != HTTP_STATUS_CONTINUE) {
+            printf("Error writing print data to server.\n");
+            break;
         }
     }
+
+    // Cleanup and free resources
+    close(thread_data->socket_fd);
+    if (cupsFinishDestDocument(thread_data->printer->http, thread_data->printer->dest, thread_data->printer->dinfo) == IPP_STATUS_OK)
+        printf("Document send succeeded.\n");
     else
-    {
-        printf("Unable to create job %s\n", cupsLastErrorString());
-        return 0;
-    }
+        printf("Document send failed: %s\n", cupsLastErrorString());
+    cupsFreeOptions(thread_data->num_options, thread_data->options);
+    g_free(thread_data);
+    g_free(buffer);
+
+    return NULL;
 }
-int get_active_jobs_count(PrinterCUPS *p)
-{
-    ensure_printer_connection(p);
-    cups_job_t *jobs;
-    int num_jobs = cupsGetJobs2(p->http, &jobs, p->name, 0, CUPS_WHICHJOBS_ACTIVE);
-    cupsFreeJobs(num_jobs, jobs);
-    return num_jobs;
-}
-gboolean cancel_job(PrinterCUPS *p, int jobid)
-{
-    ensure_printer_connection(p);
-    ipp_status_t status = cupsCancelDestJob(p->http, p->dest, jobid);
-    if (status == IPP_STATUS_OK)
-        return TRUE;
-    return FALSE;
-}
+
 void printAllJobs(PrinterCUPS *p)
 {
     ensure_printer_connection(p);

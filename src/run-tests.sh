@@ -27,8 +27,6 @@ fi
 
 clean_up()
 {
-    #return
-
     #
     # Shut down all the daemons
     #
@@ -118,6 +116,7 @@ clean_up()
     # Remove test bed directories
     #
 
+    #return
     if test -n "$BASE"; then
 	rm -rf $BASE
     fi
@@ -495,10 +494,17 @@ sleep 2
 
 BACKEND=./cups
 
+# Directory for job transfer sockets
+mkdir $BASE/cpdb
+mkdir $BASE/cpdb/sockets
+
 # Create the log file
 BACKEND_LOG=$BASE/log/backend_log
 rm -f $BACKEND_LOG
 touch $BACKEND_LOG
+
+# Debug logging for CPDB
+export CPDB_DEBUG_LEVEL=debug
 
 echo "Starting CPDB CUPS backend:"
 echo "    $runcups $BACKEND >$BACKEND_LOG 2>&1 &"
@@ -540,7 +546,7 @@ echo ""
   echo get-all-options $QUEUE CUPS; \
   sleep 2; \
   echo print-file $FILE_TO_PRINT $QUEUE CUPS; \
-  sleep 1; \
+  sleep 3; \
   echo stop \
 ) | $FRONTEND > $FRONTEND_LOG 2>&1 &
 FRONTEND_PID=$!
@@ -551,14 +557,14 @@ if (test "x$FRONTEND_PID" != "x"); then
 fi
 
 #
-# Give the frontend a maximum of 12 seconds to run and then kill it, to avoid
+# Give the frontend a maximum of 15 seconds to run and then kill it, to avoid
 # the script getting stuck if stopping the frontend fails.
 #
 
 i=0
 while kill -0 $FRONTEND_PID >/dev/null 2>&1; do
     i=$((i+1))
-    if test $i -ge 12; then
+    if test $i -ge 15; then
 	kill -KILL $FRONTEND_PID >/dev/null 2>&1 || true
 	FRONTEND_PID=
 	echo "FAIL: Frontend keeps running!"
