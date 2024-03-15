@@ -557,7 +557,7 @@ if (test "x$FRONTEND_PID" != "x"); then
 fi
 
 #
-# Give the frontend a maximum of 12 seconds to run and then kill it, to avoid
+# Give the frontend a maximum of 15 seconds to run and then kill it, to avoid
 # the script getting stuck if stopping the frontend fails.
 #
 
