@@ -280,100 +280,74 @@ int send_printer_added(void *_dialog_name, unsigned flags, cups_dest_t *dest)
     return 1; //continue enumeration
 }
 
-static void on_stop_backend(GDBusConnection *connection,
-                            const gchar *sender_name,
-                            const gchar *object_path,
-                            const gchar *interface_name,
-                            const gchar *signal_name,
-                            GVariant *parameters,
-                            gpointer not_used)
-{
-    g_message("Stop backend signal from %s\n", sender_name);
-    /**
-     * Ignore this signal if the dialog's keep_alive variable is set
-     */
-    Dialog *d = find_dialog(b, sender_name);
-    if (d && d->keep_alive)
-        return;
-
-    set_dialog_cancel(b, sender_name);
-    remove_frontend(b, sender_name);
-    if (no_frontends(b))
-    {
-        g_message("No frontends connected .. exiting backend.\n");
-        exit(EXIT_SUCCESS);
-    }
-}
-
-static void on_hide_remote_printers(GDBusConnection *connection,
-                                    const gchar *sender_name,
-                                    const gchar *object_path,
-                                    const gchar *interface_name,
-                                    const gchar *signal_name,
-                                    GVariant *parameters,
+static void on_handle_do_listing(PrintBackend *interface,
+                                    GDBusMethodInvocation *invocation,
+                                    gboolean is_listed,
                                     gpointer not_used)
 {
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_HIDE_REMOTE, dialog_name);
-    if (!get_hide_remote(b, dialog_name))
-    {
+
+    if(!is_listed){
+        const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+        Dialog *d = find_dialog(b, dialog_name);
+        if (d && d->keep_alive)
+            return;
+
         set_dialog_cancel(b, dialog_name);
-        set_hide_remote_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
+        remove_frontend(b, dialog_name);
+        if (no_frontends(b))
+        {
+            g_message("No frontends connected .. exiting backend.\n");
+            exit(EXIT_SUCCESS);
+        }
     }
 }
 
-static void on_unhide_remote_printers(GDBusConnection *connection,
-                                      const gchar *sender_name,
-                                      const gchar *object_path,
-                                      const gchar *interface_name,
-                                      const gchar *signal_name,
-                                      GVariant *parameters,
-                                      gpointer not_used)
-{
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_UNHIDE_REMOTE, dialog_name);
-    if (get_hide_remote(b, dialog_name))
-    {
-        set_dialog_cancel(b, dialog_name);
-        unset_hide_remote_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
-    }
-}
-
-static void on_hide_temp_printers(GDBusConnection *connection,
-                                  const gchar *sender_name,
-                                  const gchar *object_path,
-                                  const gchar *interface_name,
-                                  const gchar *signal_name,
-                                  GVariant *parameters,
-                                  gpointer not_used)
-{
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_HIDE_TEMP, dialog_name);
-    if (!get_hide_temp(b, dialog_name))
-    {
-        set_dialog_cancel(b, dialog_name);
-        set_hide_temp_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
-    }
-}
-
-static void on_unhide_temp_printers(GDBusConnection *connection,
-                                    const gchar *sender_name,
-                                    const gchar *object_path,
-                                    const gchar *interface_name,
-                                    const gchar *signal_name,
-                                    GVariant *parameters,
+static void on_handle_show_remote_printers(PrintBackend *interface,
+                                    GDBusMethodInvocation *invocation,
+                                    gboolean is_visible,
                                     gpointer not_used)
 {
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_UNHIDE_TEMP, dialog_name);
-    if (get_hide_temp(b, dialog_name))
-    {
-        set_dialog_cancel(b, dialog_name);
-        unset_hide_temp_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
+    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+    if (!is_visible){
+        if (!get_hide_remote(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            set_hide_remote_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
+    }
+    else if (is_visible){
+        if (get_hide_remote(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            unset_hide_remote_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
+    }
+}
+
+
+static void on_handle_show_temporary_printers(PrintBackend *interface,
+                                    GDBusMethodInvocation *invocation,
+                                    gboolean is_visible,
+                                    gpointer not_used)
+{
+    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+    if (!is_visible){
+        if (!get_hide_temp(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            set_hide_temp_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
+    }
+    else if (is_visible){
+        if (get_hide_temp(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            unset_hide_temp_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
     }
 }
 
@@ -614,54 +588,5 @@ void connect_to_signals()
                      "handle-get-all-translations",
                      G_CALLBACK(on_handle_get_all_translations),
                      NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_STOP_BACKEND,              //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_stop_backend,                  //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_HIDE_REMOTE,         		 //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_hide_remote_printers,          //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_UNHIDE_REMOTE,        	 //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_unhide_remote_printers,        //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_HIDE_TEMP,     	         //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_hide_temp_printers,            //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_UNHIDE_TEMP,          	 //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_unhide_temp_printers,          //callback
-                                       NULL,                             //user_data
-                                       NULL);
+    
 }

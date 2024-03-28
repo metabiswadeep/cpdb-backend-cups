@@ -102,14 +102,6 @@ typedef struct _Media
 	int (*margins)[4]; /** int margins[num_margins][4]; left(0), right(1), top(2), bottom(3) **/
 } Media;
 
-/*
-typedef struct _PrintResult
-{
-    gchar *jobid;
-    gchar *socket;
-} PrintResult;
-*/
-
 typedef struct _PrintDataThreadData {
     PrinterCUPS *printer;
     int num_options;
