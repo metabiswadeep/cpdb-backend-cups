@@ -1519,9 +1519,10 @@ void *print_data_thread(void *data) {
 
     // Cleanup and free resources
     close(thread_data->socket_fd);
-    cupsFinishDestDocument(thread_data->printer->http,
-			   thread_data->printer->dest,
-			   thread_data->printer->dinfo);
+    if (cupsFinishDestDocument(thread_data->printer->http, thread_data->printer->dest, thread_data->printer->dinfo) == IPP_STATUS_OK)
+        printf("Document send succeeded.\n");
+    else
+        printf("Document send failed: %s\n", cupsLastErrorString());
     cupsFreeOptions(thread_data->num_options, thread_data->options);
     g_free(thread_data);
     g_free(buffer);
