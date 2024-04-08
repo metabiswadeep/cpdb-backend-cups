@@ -499,17 +499,17 @@ void notify_added_printers(BackendObj *b, const char *dialog_name, GHashTable *n
     }
 }
 
-gboolean get_hide_remote(BackendObj *b, char *dialog_name)
+gboolean get_hide_remote(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     return d->hide_remote;
 }
-gboolean get_hide_temp(BackendObj *b, char *dialog_name)
+gboolean get_hide_temp(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     return d->hide_temp;
 }
-void refresh_printer_list(BackendObj *b, char *dialog_name)
+void refresh_printer_list(BackendObj *b, const char *dialog_name)
 {
     GHashTable *new_printers;
     new_printers = cups_get_printers(get_hide_temp(b, dialog_name), get_hide_remote(b, dialog_name));

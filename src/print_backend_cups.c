@@ -32,7 +32,7 @@ void update_printer_lists()
     g_hash_table_iter_init(&iter, b->dialogs);
     while (g_hash_table_iter_next(&iter, &key, &value))
     {
-        char *dialog_name = key;
+        const char *dialog_name = key;
         refresh_printer_list(b, dialog_name);
     }
 }
@@ -242,7 +242,7 @@ static gboolean on_handle_get_all_translations(PrintBackend *interface,
 
 gpointer list_printers(gpointer _dialog_name)
 {
-    char *dialog_name = (char *)_dialog_name;
+    const char *dialog_name = (const char *)_dialog_name;
     g_message("New thread for dialog at %s\n", dialog_name);
     int *cancel = get_dialog_cancel(b, dialog_name);
 
@@ -261,7 +261,7 @@ gpointer list_printers(gpointer _dialog_name)
 int send_printer_added(void *_dialog_name, unsigned flags, cups_dest_t *dest)
 {
 
-    char *dialog_name = (char *)_dialog_name;
+    const char *dialog_name = (const char *)_dialog_name;
     char *printer_name = dest->name;
 
     if (dialog_contains_printer(b, dialog_name, printer_name))
