@@ -1554,35 +1554,8 @@ static void list_group(ppd_file_t *ppd,    /* I - PPD file */
         logdebug("    Option %d : %s\n", i, group->options[i].keyword);
     }
 }
-void tryPPD(PrinterCUPS *p)
-{
-    const char *filename; /* PPD filename */
-    ppd_file_t *ppd;      /* PPD data */
-    ppd_group_t *group;   /* Current group */
-    if ((filename = cupsGetPPD(p->dest->name)) == NULL)
-    {
-        logerror("Error getting ppd file.\n");
-        return;
-    }
-    g_message("Got ppd file %s\n", filename);
-    if ((ppd = ppdOpenFile(filename)) == NULL)
-    {
-        logerror("Error opening ppd file.\n");
-        return;
-    }
-    logdebug("Opened ppd file.\n");
-    ppdMarkDefaults(ppd);
 
-    cupsMarkOptions(ppd, p->dest->num_options, p->dest->options);
 
-    group = ppd->groups;
-    for (int i = ppd->num_groups; i > 0; i--)
-    {
-        /**iterate through all the groups in the ppd file */
-        list_group(ppd, group);
-        group++;
-    }
-}
 /**********Dialog related funtions ****************/
 Dialog *get_new_Dialog()
 {

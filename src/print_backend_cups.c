@@ -431,7 +431,6 @@ static gboolean on_handle_ping(PrintBackend *interface,
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
     print_backend_complete_ping(interface, invocation);
-    tryPPD(p);
     return TRUE;
 }
 
