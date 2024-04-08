@@ -559,6 +559,18 @@ void connect_to_signals()
                      "handle-get-printer-state",              //signal name
                      G_CALLBACK(on_handle_get_printer_state), //callback
                      NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-do-listing",        //signal name
+                     G_CALLBACK(on_handle_do_listing), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-show-remote-printers",        //signal name
+                     G_CALLBACK(on_handle_show_remote_printers), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-show-temporary-printers",        //signal name
+                     G_CALLBACK(on_handle_show_temporary_printers), //callback
+                     NULL);
     g_signal_connect(skeleton,                                //instance
                      "handle-is-accepting-jobs",              //signal name
                      G_CALLBACK(on_handle_is_accepting_jobs), //callback
