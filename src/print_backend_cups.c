@@ -47,7 +47,7 @@ on_printer_state_changed (CupsNotifier *object,
                           gboolean printer_is_accepting_jobs,
                           gpointer user_data)
 {
-    loginfo("Printer state change on printer %s: %s\n", printer, text);
+    logdebug("Printer state change on printer %s: %s\n", printer, text);
     
     GHashTableIter iter;
     gpointer key, value;
@@ -73,7 +73,7 @@ on_printer_added (CupsNotifier *object,
                   gboolean printer_is_accepting_jobs,
                   gpointer user_data)
 {
-    loginfo("Printer added: %s\n", text);
+    logdebug("Printer added: %s\n", text);
     update_printer_lists();
 }
 
@@ -87,7 +87,7 @@ on_printer_deleted (CupsNotifier *object,
                     gboolean printer_is_accepting_jobs,
                     gpointer user_data)
 {
-    loginfo("Printer deleted: %s\n", text);
+    logdebug("Printer deleted: %s\n", text);
     update_printer_lists();
 }
 
@@ -199,7 +199,7 @@ static gboolean on_handle_get_printer_list(PrintBackend *interface,
     {
         name = key;
         dest = value;
-        loginfo("Found printer : %s\n", name);
+        logdebug("Found printer : %s\n", name);
         info = cups_retrieve_string(dest, "printer-info");
         location = cups_retrieve_string(dest, "printer-location");
         make = cups_retrieve_string(dest, "printer-make-and-model");
@@ -371,7 +371,7 @@ static gboolean on_handle_get_printer_state(PrintBackend *interface,
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
     const char *state = get_printer_state(p);
-    printf("%s is %s\n", printer_name, state);
+    logdebug("%s is %s\n", printer_name, state);
     print_backend_complete_get_printer_state(interface, invocation, state);
     return TRUE;
 }
@@ -502,7 +502,7 @@ static gboolean on_handle_get_default_printer(PrintBackend *interface,
                                               gpointer user_data)
 {
     char *def = get_default_printer(b);
-    printf("%s\n", def);
+    logdebug("%s\n", def);
     print_backend_complete_get_default_printer(interface, invocation, def);
     return TRUE;
 }
