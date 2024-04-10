@@ -1651,8 +1651,7 @@ GHashTable *cups_get_printers(gboolean notemp, gboolean noremote)
     unsigned type = 0, mask = 0;
     if (noremote)
     {
-        type = CUPS_PRINTER_LOCAL;
-        mask = CUPS_PRINTER_REMOTE;
+        mask |= CUPS_PRINTER_REMOTE;
     }
     if (notemp)
     {
