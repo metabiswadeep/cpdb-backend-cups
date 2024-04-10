@@ -146,7 +146,7 @@ void set_dialog_cancel(BackendObj *, const char *dialog_name);   //make cancel =
 void reset_dialog_cancel(BackendObj *, const char *dialog_name); //make cancel = 1
 
 /** Returns whether remote CUPS printers are hidden for this dialog **/
-gboolean get_hide_remote(BackendObj *b, char *dialog_name);
+gboolean get_hide_remote(BackendObj *b, const char *dialog_name);
 
 /** Hides remote CUPS printers for the dialog **/
 void set_hide_remote_printers(BackendObj *, const char *dialog_name);
@@ -155,7 +155,7 @@ void set_hide_remote_printers(BackendObj *, const char *dialog_name);
 void unset_hide_remote_printers(BackendObj *, const char *dialog_name);
 
 /** Returns whether temporary CUPS Queues(discovered, but not set up) are hidden for this dialog **/
-gboolean get_hide_temp(BackendObj *b, char *dialog_name);
+gboolean get_hide_temp(BackendObj *b, const char *dialog_name);
 
 /** Hides temporary CUPS queues for the dialog **/
 void set_hide_temp_printers(BackendObj *, const char *dialog_name);
@@ -197,7 +197,7 @@ void send_printer_removed_signal(BackendObj *b, const char *dialog_name, const c
 void notify_removed_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table);
 void notify_added_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table);
 void replace_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table);
-void refresh_printer_list(BackendObj *b, char *dialog_name);
+void refresh_printer_list(BackendObj *b, const char *dialog_name);
 GHashTable *get_dialog_printers(BackendObj *b, const char *dialog_name);
 cups_dest_t *get_dest_by_name(BackendObj *b, const char *dialog_name, const char *printer_name);
 PrinterCUPS *get_printer_by_name(BackendObj *b, const char *dialog_name, const char *printer_name);

@@ -32,7 +32,7 @@ void update_printer_lists()
     g_hash_table_iter_init(&iter, b->dialogs);
     while (g_hash_table_iter_next(&iter, &key, &value))
     {
-        char *dialog_name = key;
+        const char *dialog_name = key;
         refresh_printer_list(b, dialog_name);
     }
 }
@@ -298,7 +298,7 @@ static gboolean on_handle_get_all_translations(PrintBackend *interface,
 
 gpointer list_printers(gpointer _dialog_name)
 {
-    char *dialog_name = (char *)_dialog_name;
+    const char *dialog_name = (const char *)_dialog_name;
     g_message("New thread for dialog at %s\n", dialog_name);
     int *cancel = get_dialog_cancel(b, dialog_name);
 
@@ -317,7 +317,7 @@ gpointer list_printers(gpointer _dialog_name)
 int send_printer_added(void *_dialog_name, unsigned flags, cups_dest_t *dest)
 {
 
-    char *dialog_name = (char *)_dialog_name;
+    const char *dialog_name = (const char *)_dialog_name;
     char *printer_name = dest->name;
 
     if (dialog_contains_printer(b, dialog_name, printer_name))
@@ -487,7 +487,6 @@ static gboolean on_handle_ping(PrintBackend *interface,
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
     print_backend_complete_ping(interface, invocation);
-    tryPPD(p);
     return TRUE;
 }
 
@@ -619,6 +618,18 @@ void connect_to_signals()
     g_signal_connect(skeleton,                                //instance
                      "handle-get-printer-state",              //signal name
                      G_CALLBACK(on_handle_get_printer_state), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-do-listing",        //signal name
+                     G_CALLBACK(on_handle_do_listing), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-show-remote-printers",        //signal name
+                     G_CALLBACK(on_handle_show_remote_printers), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-show-temporary-printers",        //signal name
+                     G_CALLBACK(on_handle_show_temporary_printers), //callback
                      NULL);
     g_signal_connect(skeleton,                                //instance
                      "handle-is-accepting-jobs",              //signal name
