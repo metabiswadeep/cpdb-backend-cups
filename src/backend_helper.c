@@ -446,7 +446,7 @@ void send_printer_state_changed_signal(BackendObj *b, const char *dialog_name, c
                                   dialog_name,
                                   b->obj_path,
                                   "org.openprinting.PrintBackend",
-                                  CPDB_SIGNAL_PRINTER_REMOVED,
+                                  CPDB_SIGNAL_PRINTER_STATE_CHANGED,
                                   g_variant_new("(ssbs)", printer_name, printer_state,
                                                 printer_is_accepting_jobs, "CUPS"),
                                   &error);
