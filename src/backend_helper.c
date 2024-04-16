@@ -1645,13 +1645,25 @@ int add_printer_to_ht_no_temp(void *user_data, unsigned flags, cups_dest_t *dest
     return 1;
 }
 
+int add_printer_to_ht_no_remote(void *user_data, unsigned flags, cups_dest_t *dest)
+{
+    if (cups_is_remote(dest))
+        return 1;
+    GHashTable *h = (GHashTable *)user_data;
+    char *printername = cpdbGetStringCopy(dest->name);
+    cups_dest_t *dest_copy = NULL;
+    cupsCopyDest(dest, 0, &dest_copy);
+    g_hash_table_insert(h, printername, dest_copy);
+    return 1;
+}
+
 GHashTable *cups_get_printers(gboolean notemp, gboolean noremote)
 {
     cups_dest_cb_t cb = add_printer_to_ht;
     unsigned type = 0, mask = 0;
     if (noremote)
     {
-        mask |= CUPS_PRINTER_REMOTE;
+        cb = add_printer_to_ht_no_remote;
     }
     if (notemp)
     {
@@ -1660,7 +1672,7 @@ GHashTable *cups_get_printers(gboolean notemp, gboolean noremote)
 
     GHashTable *printers_ht = g_hash_table_new(g_str_hash, g_str_equal);
     cupsEnumDests(CUPS_DEST_FLAGS_NONE,
-                  1000,         //timeout
+                  3000,         //timeout
                   NULL,         //cancel
                   type,         //TYPE
                   mask,         //MASK
@@ -1721,6 +1733,21 @@ gboolean cups_is_temporary(cups_dest_t *dest)
     if (cupsGetOption("printer-uri-supported", dest->num_options, dest->options))
         return FALSE;
     return TRUE;
+}
+
+gboolean cups_is_remote(cups_dest_t *dest)
+{
+    g_assert_nonnull(dest);
+    const char *uri = cupsGetOption("device-uri", dest->num_options, dest->options);
+    if (((!strncmp(uri, "ipp://", 6) ||
+          !strncmp(uri, "ipps://", 7)) &&
+         (strstr(uri, "/printers/") != NULL ||
+          strstr(uri, "/classes/") != NULL)) ||
+        ((strstr(uri, "._ipp.") != NULL ||
+          strstr(uri, "._ipps.") != NULL) &&
+         !strcmp(uri + strlen(uri) - 5, "/cups")))
+        return TRUE;
+    return FALSE;
 }
 
 char *extract_ipp_attribute(ipp_attribute_t *attr, int index, const char *option_name)

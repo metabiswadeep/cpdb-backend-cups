@@ -271,6 +271,7 @@ GHashTable *cups_get_all_printers();
 GHashTable *cups_get_local_printers();
 char *cups_retrieve_string(cups_dest_t *dest, const char *option_name);
 gboolean cups_is_temporary(cups_dest_t *dest);
+gboolean cups_is_remote(cups_dest_t *dest);
 GHashTable *cups_get_printers(gboolean notemp, gboolean noremote);
 char *extract_ipp_attribute(ipp_attribute_t *, int index, const char *option_name);
 char *extract_res_from_ipp(ipp_attribute_t *, int index);
