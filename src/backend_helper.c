@@ -4,7 +4,10 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
+#define MAX_ADDRESSES 10 
 #define _CUPS_NO_DEPRECATED 1
 
 static http_t *system_conn = NULL;
@@ -1735,19 +1738,117 @@ gboolean cups_is_temporary(cups_dest_t *dest)
     return TRUE;
 }
 
+gboolean checkRemote(const char *uri) {
+    //GET LOCALHOST ADDRESSES
+    char hostname[1024];
+
+    // Get the hostname of the local machine
+    if (gethostname(hostname, sizeof(hostname)) == -1) {
+        perror("gethostname");
+        return 1;
+    }
+
+    // Get the network IP addresses associated with the hostname
+    struct addrinfo hints, *res, *p;
+    int status;
+    int num_addresses = 0;
+    AddressList addresses[MAX_ADDRESSES];
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((status = getaddrinfo(hostname, NULL, &hints, &res)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        return 1;
+    }
+
+    // Store the IP addresses associated with the hostname
+    for (p = res; p != NULL && num_addresses < MAX_ADDRESSES; p = p->ai_next) {
+        void *addr;
+
+        // Get the pointer to the address itself
+        if (p->ai_family == AF_INET) { // IPv4
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            addr = &(ipv4->sin_addr);
+            addresses[num_addresses].family = AF_INET;
+        } else { // IPv6
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+            addr = &(ipv6->sin6_addr);
+            addresses[num_addresses].family = AF_INET6;
+        }
+
+        // Convert the IP to a string and store it
+        inet_ntop(p->ai_family, addr, addresses[num_addresses].ipstr, sizeof(addresses[num_addresses].ipstr));
+        num_addresses++;
+    }
+
+    freeaddrinfo(res); // Free the linked list
+
+    // COMPARE LOCAL IP ADDRESSES WITH THAT OF THE URI
+    struct addrinfo *uri_res;
+
+    if ((status = getaddrinfo(uri, NULL, &hints, &uri_res)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        return 1;
+    }
+
+
+    for (p = uri_res; p != NULL; p = p->ai_next) {
+        void *addr;
+        char ipstr[INET6_ADDRSTRLEN];
+
+        // Get the pointer to the address itself,
+        // different fields in IPv4 and IPv6:
+        if (p->ai_family == AF_INET) { // IPv4
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            addr = &(ipv4->sin_addr);
+        } else { // IPv6
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+            addr = &(ipv6->sin6_addr);
+        }
+
+        // Convert the IP to a string
+        inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
+
+        // Check if this IP address matches any of the addresses associated with the local hostname
+        for (int i = 0; i < num_addresses; i++) {
+            if (p->ai_family == addresses[i].family && strcmp(ipstr, addresses[i].ipstr) == 0) {
+                return FALSE;
+            }
+        }
+    }
+
+    freeaddrinfo(uri_res); // Free the linked list
+    return TRUE;
+}
+
 gboolean cups_is_remote(cups_dest_t *dest)
 {
     g_assert_nonnull(dest);
     const char *uri = cupsGetOption("device-uri", dest->num_options, dest->options);
-    if (((!strncmp(uri, "ipp://", 6) ||
-          !strncmp(uri, "ipps://", 7)) &&
-         (strstr(uri, "/printers/") != NULL ||
-          strstr(uri, "/classes/") != NULL)) ||
-        ((strstr(uri, "._ipp.") != NULL ||
-          strstr(uri, "._ipps.") != NULL) &&
-         !strcmp(uri + strlen(uri) - 5, "/cups")))
-        return TRUE;
-    return FALSE;
+
+    // Check for "localhost"
+    if (strcmp(uri, "localhost") == 0) {
+        return 0;
+    }
+    
+    // Check for "::1"
+    if (strcmp(uri, "::1") == 0) {
+        return 0;
+    }
+    
+    // Check for IPv4 IP addresses starting with "127"
+    if (strncmp(uri, "127.", 4) == 0) {
+        return 0;
+    }
+
+    // Check if the URI starts with "usb://" or "parallel://"
+    if (strncmp(uri, "usb://", 6) == 0 || strncmp(uri, "parallel://", 11) == 0) {
+        return 0;
+    }
+
+    return checkRemote(uri);
 }
 
 char *extract_ipp_attribute(ipp_attribute_t *attr, int index, const char *option_name)

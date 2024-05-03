@@ -110,6 +110,11 @@ typedef struct _PrintDataThreadData {
     struct sockaddr_un server_addr;
 } PrintDataThreadData;
 
+typedef struct _AddressList {
+    char ipstr[INET6_ADDRSTRLEN];
+    int family;
+} AddressList;
+
 /********Backend related functions*******************/
 
 /** Get a new BackendObj **/
@@ -231,6 +236,7 @@ static void *print_data_thread(void *data);
 void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *job_id_str, char *socket_path, const char *title);
 
 
+gboolean checkRemote(const char *uri);
 /**
  * Get translation of choice name for a given locale
  */
