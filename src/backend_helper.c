@@ -1738,6 +1738,43 @@ gboolean cups_is_temporary(cups_dest_t *dest)
     return TRUE;
 }
 
+char *extractHostFromURI(const char *uri) {
+    const char *host_start, *host_end;
+    char *host = NULL;
+
+    // Find the start of the host part
+    host_start = strstr(uri, "://");
+    if (host_start != NULL) {
+        host_start += 3; // Move past "://"
+    } else {
+        return NULL;
+    }
+
+    // Find the end of the host part
+    const char *slash_pos = strchr(host_start, '/');
+    const char *colon_pos = strchr(host_start, ':');
+
+    if (slash_pos == NULL && colon_pos == NULL) {
+        host_end = host_start + strlen(host_start); // If no "/" or ":", host extends to end of string
+    } else if (slash_pos == NULL) {
+        host_end = colon_pos;
+    } else if (colon_pos == NULL) {
+        host_end = slash_pos;
+    } else {
+        host_end = (slash_pos < colon_pos) ? slash_pos : colon_pos;
+    }
+
+    // Allocate memory for the host part
+    host = (char *)malloc(host_end - host_start + 1);
+    if (host != NULL) {
+        // Copy the host part
+        strncpy(host, host_start, host_end - host_start);
+        host[host_end - host_start] = '\0'; // Null-terminate the string
+    }
+
+    return host;
+}
+
 gboolean checkRemote(const char *uri) {
     //GET LOCALHOST ADDRESSES
     char hostname[1024];
@@ -1788,7 +1825,9 @@ gboolean checkRemote(const char *uri) {
     // COMPARE LOCAL IP ADDRESSES WITH THAT OF THE URI
     struct addrinfo *uri_res;
 
-    if ((status = getaddrinfo(uri, NULL, &hints, &uri_res)) != 0) {
+    const char* new_uri = extractHostFromURI(uri);
+
+    if ((status = getaddrinfo(new_uri, NULL, &hints, &uri_res)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
         return 1;
     }
@@ -1829,23 +1868,27 @@ gboolean cups_is_remote(cups_dest_t *dest)
     const char *uri = cupsGetOption("device-uri", dest->num_options, dest->options);
 
     // Check for "localhost"
-    if (strcmp(uri, "localhost") == 0) {
-        return 0;
+    if (strstr(uri, "localhost") != NULL) {
+        return FALSE;
+    }
+
+    if (strstr(uri, "cups-pdf") != NULL) {
+        return FALSE;
     }
     
     // Check for "::1"
-    if (strcmp(uri, "::1") == 0) {
-        return 0;
+    if (strstr(uri, "::1") != NULL) {
+        return FALSE;
     }
     
     // Check for IPv4 IP addresses starting with "127"
     if (strncmp(uri, "127.", 4) == 0) {
-        return 0;
+        return FALSE;
     }
 
     // Check if the URI starts with "usb://" or "parallel://"
     if (strncmp(uri, "usb://", 6) == 0 || strncmp(uri, "parallel://", 11) == 0) {
-        return 0;
+        return FALSE;
     }
 
     return checkRemote(uri);

@@ -237,6 +237,7 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
 
 
 gboolean checkRemote(const char *uri);
+char *extractHostFromURI(const char *uri);
 /**
  * Get translation of choice name for a given locale
  */
