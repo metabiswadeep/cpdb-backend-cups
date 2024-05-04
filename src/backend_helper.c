@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <cupsfilters/ipp.h>
 
 #define MAX_ADDRESSES 10 
 #define _CUPS_NO_DEPRECATED 1
@@ -1772,6 +1773,8 @@ char *extractHostFromURI(const char *uri) {
         host[host_end - host_start] = '\0'; // Null-terminate the string
     }
 
+    fprintf(stderr, "XXX12: URI: %s Host: %s\n", uri, host);
+
     return host;
 }
 
@@ -1785,45 +1788,62 @@ gboolean checkRemote(const char *uri) {
         return 1;
     }
 
+    strcat(hostname, ".local");
+
     // Get the network IP addresses associated with the hostname
     struct addrinfo hints, *res, *p;
     int status;
     int num_addresses = 0;
     AddressList addresses[MAX_ADDRESSES];
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
-    hints.ai_socktype = SOCK_STREAM;
+    // Get the IPv4 addresses associated with the hostname
+    {
 
-    if ((status = getaddrinfo(hostname, NULL, &hints, &res)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-        return 1;
-    }
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET; // IPv4
+        hints.ai_socktype = SOCK_STREAM;
 
-    // Store the IP addresses associated with the hostname
-    for (p = res; p != NULL && num_addresses < MAX_ADDRESSES; p = p->ai_next) {
-        void *addr;
-
-        // Get the pointer to the address itself
-        if (p->ai_family == AF_INET) { // IPv4
-            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-            addr = &(ipv4->sin_addr);
-            addresses[num_addresses].family = AF_INET;
-        } else { // IPv6
-            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-            addr = &(ipv6->sin6_addr);
-            addresses[num_addresses].family = AF_INET6;
+        if ((status = getaddrinfo(hostname, NULL, &hints, &res)) != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+            return 1;
         }
 
-        // Convert the IP to a string and store it
-        inet_ntop(p->ai_family, addr, addresses[num_addresses].ipstr, sizeof(addresses[num_addresses].ipstr));
-        num_addresses++;
+        // Iterate over the linked list of addrinfo structures
+        for (p = res; p != NULL && num_addresses < MAX_ADDRESSES; p = p->ai_next) {
+            inet_ntop(p->ai_family, &((struct sockaddr_in *)p->ai_addr)->sin_addr, addresses[num_addresses].ipstr, sizeof(addresses[num_addresses].ipstr));
+            addresses[num_addresses].family = p->ai_family;
+            num_addresses++;
+        }
+
+        freeaddrinfo(res); // Free the linked list
     }
 
-    freeaddrinfo(res); // Free the linked list
+    // Get the IPv6 addresses associated with the hostname
+    {
+
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET6; // IPv6
+        hints.ai_socktype = SOCK_STREAM;
+
+        if ((status = getaddrinfo(hostname, NULL, &hints, &res)) != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+            return 1;
+        }
+
+        // Iterate over the linked list of addrinfo structures
+        for (p = res; p != NULL && num_addresses < MAX_ADDRESSES; p = p->ai_next) {
+            inet_ntop(p->ai_family, &((struct sockaddr_in6 *)p->ai_addr)->sin6_addr, addresses[num_addresses].ipstr, sizeof(addresses[num_addresses].ipstr));
+            addresses[num_addresses].family = p->ai_family;
+            num_addresses++;
+        }
+
+        freeaddrinfo(res); // Free the linked list
+    }
 
     // COMPARE LOCAL IP ADDRESSES WITH THAT OF THE URI
     struct addrinfo *uri_res;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
 
     const char* new_uri = extractHostFromURI(uri);
 
@@ -1865,14 +1885,15 @@ gboolean checkRemote(const char *uri) {
 gboolean cups_is_remote(cups_dest_t *dest)
 {
     g_assert_nonnull(dest);
-    const char *uri = cupsGetOption("device-uri", dest->num_options, dest->options);
+    const char *device_uri = cupsGetOption("device-uri", dest->num_options, dest->options);
+
+    const char *uri = cfResolveURI(device_uri);
+
+    fprintf(stderr, "XXX10: deviceURI: %s \n", device_uri);
+    fprintf(stderr, "XXX11: cfURI: %s \n", uri);
 
     // Check for "localhost"
     if (strstr(uri, "localhost") != NULL) {
-        return FALSE;
-    }
-
-    if (strstr(uri, "cups-pdf") != NULL) {
         return FALSE;
     }
     
