@@ -653,4 +653,4 @@ echo "SUCCESS: All tests were successful."
 echo ""
 
 RES=0
-exit 0
+exit $RES

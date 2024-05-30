@@ -32,7 +32,7 @@ void update_printer_lists()
     g_hash_table_iter_init(&iter, b->dialogs);
     while (g_hash_table_iter_next(&iter, &key, &value))
     {
-        char *dialog_name = key;
+        const char *dialog_name = key;
         refresh_printer_list(b, dialog_name);
     }
 }
@@ -47,7 +47,7 @@ on_printer_state_changed (CupsNotifier *object,
                           gboolean printer_is_accepting_jobs,
                           gpointer user_data)
 {
-    loginfo("Printer state change on printer %s: %s\n", printer, text);
+    logdebug("Printer state change on printer %s: %s\n", printer, text);
     
     GHashTableIter iter;
     gpointer key, value;
@@ -73,7 +73,7 @@ on_printer_added (CupsNotifier *object,
                   gboolean printer_is_accepting_jobs,
                   gpointer user_data)
 {
-    loginfo("Printer added: %s\n", text);
+    logdebug("Printer added: %s\n", text);
     update_printer_lists();
 }
 
@@ -87,7 +87,7 @@ on_printer_deleted (CupsNotifier *object,
                     gboolean printer_is_accepting_jobs,
                     gpointer user_data)
 {
-    loginfo("Printer deleted: %s\n", text);
+    logdebug("Printer deleted: %s\n", text);
     update_printer_lists();
 }
 
@@ -166,7 +166,7 @@ on_name_acquired(GDBusConnection *connection,
     connect_to_dbus(b, CPDB_BACKEND_OBJ_PATH);
 }
 
-static gboolean on_handle_get_printer_list(PrintBackend *interface,
+static gboolean on_handle_get_all_printers(PrintBackend *interface,
                                            GDBusMethodInvocation *invocation,
                                            gpointer user_data)
 {
@@ -189,7 +189,7 @@ static gboolean on_handle_get_printer_list(PrintBackend *interface,
     if (num_printers == 0)
     {
         printers = g_variant_new_array(G_VARIANT_TYPE ("(v)"), NULL, 0);
-        print_backend_complete_get_printer_list(interface, invocation, 0, printers);
+        print_backend_complete_get_all_printers(interface, invocation, 0, printers);
         return TRUE;
     }
 
@@ -199,7 +199,7 @@ static gboolean on_handle_get_printer_list(PrintBackend *interface,
     {
         name = key;
         dest = value;
-        loginfo("Found printer : %s\n", name);
+        logdebug("Found printer : %s\n", name);
         info = cups_retrieve_string(dest, "printer-info");
         location = cups_retrieve_string(dest, "printer-location");
         make = cups_retrieve_string(dest, "printer-make-and-model");
@@ -218,7 +218,63 @@ static gboolean on_handle_get_printer_list(PrintBackend *interface,
     g_hash_table_destroy(table);
     printers = g_variant_builder_end(&builder);
 
-    print_backend_complete_get_printer_list(interface, invocation, num_printers, printers);
+    print_backend_complete_get_all_printers(interface, invocation, num_printers, printers);
+    return TRUE;
+}
+
+static gboolean on_handle_get_filtered_printer_list(PrintBackend *interface,
+                                           GDBusMethodInvocation *invocation,
+                                           gpointer user_data)
+{
+    int num_printers;
+    GHashTableIter iter;
+    gpointer key, value;
+    GVariantBuilder builder;
+    GVariant *printer, *printers;
+
+    cups_dest_t *dest;
+    gboolean accepting_jobs;
+    const char *state;
+    char *name, *info, *location, *make;
+
+    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+    GHashTable *table = cups_get_printers(get_hide_temp(b, dialog_name), get_hide_remote(b, dialog_name));
+
+    add_frontend(b, dialog_name);
+    num_printers = g_hash_table_size(table);
+    if (num_printers == 0)
+    {
+        printers = g_variant_new_array(G_VARIANT_TYPE ("(v)"), NULL, 0);
+        print_backend_complete_get_filtered_printer_list(interface, invocation, 0, printers);
+        return TRUE;
+    }
+
+    g_hash_table_iter_init(&iter, table);
+    g_variant_builder_init(&builder, G_VARIANT_TYPE_ARRAY);
+    while (g_hash_table_iter_next(&iter, &key, &value))
+    {
+        name = key;
+        dest = value;
+        logdebug("Found printer : %s\n", name);
+        info = cups_retrieve_string(dest, "printer-info");
+        location = cups_retrieve_string(dest, "printer-location");
+        make = cups_retrieve_string(dest, "printer-make-and-model");
+        accepting_jobs = cups_is_accepting_jobs(dest);
+        state = cups_printer_state(dest);
+        add_printer_to_dialog(b, dialog_name, dest);
+        printer = g_variant_new(CPDB_PRINTER_ARGS, dest->name, dest->name, info,
+                                location, make, accepting_jobs, state, BACKEND_NAME);
+        g_variant_builder_add(&builder, "(v)", printer);
+        free(key);
+        cupsFreeDests(1, value);
+        free(info);
+        free(location);
+        free(make);
+    }
+    g_hash_table_destroy(table);
+    printers = g_variant_builder_end(&builder);
+
+    print_backend_complete_get_filtered_printer_list(interface, invocation, num_printers, printers);
     return TRUE;
 }
 
@@ -242,7 +298,7 @@ static gboolean on_handle_get_all_translations(PrintBackend *interface,
 
 gpointer list_printers(gpointer _dialog_name)
 {
-    char *dialog_name = (char *)_dialog_name;
+    const char *dialog_name = (const char *)_dialog_name;
     g_message("New thread for dialog at %s\n", dialog_name);
     int *cancel = get_dialog_cancel(b, dialog_name);
 
@@ -261,7 +317,7 @@ gpointer list_printers(gpointer _dialog_name)
 int send_printer_added(void *_dialog_name, unsigned flags, cups_dest_t *dest)
 {
 
-    char *dialog_name = (char *)_dialog_name;
+    const char *dialog_name = (const char *)_dialog_name;
     char *printer_name = dest->name;
 
     if (dialog_contains_printer(b, dialog_name, printer_name))
@@ -280,100 +336,74 @@ int send_printer_added(void *_dialog_name, unsigned flags, cups_dest_t *dest)
     return 1; //continue enumeration
 }
 
-static void on_stop_backend(GDBusConnection *connection,
-                            const gchar *sender_name,
-                            const gchar *object_path,
-                            const gchar *interface_name,
-                            const gchar *signal_name,
-                            GVariant *parameters,
-                            gpointer not_used)
-{
-    g_message("Stop backend signal from %s\n", sender_name);
-    /**
-     * Ignore this signal if the dialog's keep_alive variable is set
-     */
-    Dialog *d = find_dialog(b, sender_name);
-    if (d && d->keep_alive)
-        return;
-
-    set_dialog_cancel(b, sender_name);
-    remove_frontend(b, sender_name);
-    if (no_frontends(b))
-    {
-        g_message("No frontends connected .. exiting backend.\n");
-        exit(EXIT_SUCCESS);
-    }
-}
-
-static void on_hide_remote_printers(GDBusConnection *connection,
-                                    const gchar *sender_name,
-                                    const gchar *object_path,
-                                    const gchar *interface_name,
-                                    const gchar *signal_name,
-                                    GVariant *parameters,
+static void on_handle_do_listing(PrintBackend *interface,
+                                    GDBusMethodInvocation *invocation,
+                                    gboolean is_listed,
                                     gpointer not_used)
 {
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_HIDE_REMOTE, dialog_name);
-    if (!get_hide_remote(b, dialog_name))
-    {
+
+    if(!is_listed){
+        const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+        Dialog *d = find_dialog(b, dialog_name);
+        if (d && d->keep_alive)
+            return;
+
         set_dialog_cancel(b, dialog_name);
-        set_hide_remote_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
+        remove_frontend(b, dialog_name);
+        if (no_frontends(b))
+        {
+            g_message("No frontends connected .. exiting backend.\n");
+            exit(EXIT_SUCCESS);
+        }
     }
 }
 
-static void on_unhide_remote_printers(GDBusConnection *connection,
-                                      const gchar *sender_name,
-                                      const gchar *object_path,
-                                      const gchar *interface_name,
-                                      const gchar *signal_name,
-                                      GVariant *parameters,
-                                      gpointer not_used)
-{
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_UNHIDE_REMOTE, dialog_name);
-    if (get_hide_remote(b, dialog_name))
-    {
-        set_dialog_cancel(b, dialog_name);
-        unset_hide_remote_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
-    }
-}
-
-static void on_hide_temp_printers(GDBusConnection *connection,
-                                  const gchar *sender_name,
-                                  const gchar *object_path,
-                                  const gchar *interface_name,
-                                  const gchar *signal_name,
-                                  GVariant *parameters,
-                                  gpointer not_used)
-{
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_HIDE_TEMP, dialog_name);
-    if (!get_hide_temp(b, dialog_name))
-    {
-        set_dialog_cancel(b, dialog_name);
-        set_hide_temp_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
-    }
-}
-
-static void on_unhide_temp_printers(GDBusConnection *connection,
-                                    const gchar *sender_name,
-                                    const gchar *object_path,
-                                    const gchar *interface_name,
-                                    const gchar *signal_name,
-                                    GVariant *parameters,
+static void on_handle_show_remote_printers(PrintBackend *interface,
+                                    GDBusMethodInvocation *invocation,
+                                    gboolean is_visible,
                                     gpointer not_used)
 {
-    char *dialog_name = cpdbGetStringCopy(sender_name);
-    g_message("%s signal from %s\n", CPDB_SIGNAL_UNHIDE_TEMP, dialog_name);
-    if (get_hide_temp(b, dialog_name))
-    {
-        set_dialog_cancel(b, dialog_name);
-        unset_hide_temp_printers(b, dialog_name);
-        refresh_printer_list(b, dialog_name);
+    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+    if (!is_visible){
+        if (!get_hide_remote(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            set_hide_remote_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
+    }
+    else if (is_visible){
+        if (get_hide_remote(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            unset_hide_remote_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
+    }
+}
+
+
+static void on_handle_show_temporary_printers(PrintBackend *interface,
+                                    GDBusMethodInvocation *invocation,
+                                    gboolean is_visible,
+                                    gpointer not_used)
+{
+    const char *dialog_name = g_dbus_method_invocation_get_sender(invocation);
+    if (!is_visible){
+        if (!get_hide_temp(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            set_hide_temp_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
+    }
+    else if (is_visible){
+        if (get_hide_temp(b, dialog_name))
+        {
+            set_dialog_cancel(b, dialog_name);
+            unset_hide_temp_printers(b, dialog_name);
+            refresh_printer_list(b, dialog_name);
+        }
     }
 }
 
@@ -397,7 +427,7 @@ static gboolean on_handle_get_printer_state(PrintBackend *interface,
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
     const char *state = get_printer_state(p);
-    printf("%s is %s\n", printer_name, state);
+    logdebug("%s is %s\n", printer_name, state);
     print_backend_complete_get_printer_state(interface, invocation, state);
     return TRUE;
 }
@@ -457,7 +487,6 @@ static gboolean on_handle_ping(PrintBackend *interface,
     const char *dialog_name = g_dbus_method_invocation_get_sender(invocation); /// potential risk
     PrinterCUPS *p = get_printer_by_name(b, dialog_name, printer_name);
     print_backend_complete_ping(interface, invocation);
-    tryPPD(p);
     return TRUE;
 }
 
@@ -528,7 +557,7 @@ static gboolean on_handle_get_default_printer(PrintBackend *interface,
                                               gpointer user_data)
 {
     char *def = get_default_printer(b);
-    printf("%s\n", def);
+    logdebug("%s\n", def);
     print_backend_complete_get_default_printer(interface, invocation, def);
     return TRUE;
 }
@@ -563,8 +592,12 @@ void connect_to_signals()
 {
     PrintBackend *skeleton = b->skeleton;
     g_signal_connect(skeleton,                               //instance
-                     "handle-get-printer-list",              //signal name
-                     G_CALLBACK(on_handle_get_printer_list), //callback
+                     "handle-get-filtered-printer-list",              //signal name
+                     G_CALLBACK(on_handle_get_filtered_printer_list), //callback
+                     NULL);
+    g_signal_connect(skeleton,                               //instance
+                     "handle-get-all-printers",              //signal name
+                     G_CALLBACK(on_handle_get_all_printers), //callback
                      NULL);
     g_signal_connect(skeleton,                              //instance
                      "handle-get-all-options",              //signal name
@@ -585,6 +618,18 @@ void connect_to_signals()
     g_signal_connect(skeleton,                                //instance
                      "handle-get-printer-state",              //signal name
                      G_CALLBACK(on_handle_get_printer_state), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-do-listing",        //signal name
+                     G_CALLBACK(on_handle_do_listing), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-show-remote-printers",        //signal name
+                     G_CALLBACK(on_handle_show_remote_printers), //callback
+                     NULL);
+    g_signal_connect(skeleton,                         //instance
+                     "handle-show-temporary-printers",        //signal name
+                     G_CALLBACK(on_handle_show_temporary_printers), //callback
                      NULL);
     g_signal_connect(skeleton,                                //instance
                      "handle-is-accepting-jobs",              //signal name
@@ -614,54 +659,5 @@ void connect_to_signals()
                      "handle-get-all-translations",
                      G_CALLBACK(on_handle_get_all_translations),
                      NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_STOP_BACKEND,              //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_stop_backend,                  //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_HIDE_REMOTE,         		 //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_hide_remote_printers,          //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_UNHIDE_REMOTE,        	 //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_unhide_remote_printers,        //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_HIDE_TEMP,     	         //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_hide_temp_printers,            //callback
-                                       NULL,                             //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(b->dbus_connection,
-                                       NULL,                             //Sender name
-                                       "org.openprinting.PrintFrontend", //Sender interface
-                                       CPDB_SIGNAL_UNHIDE_TEMP,          	 //Signal name
-                                       NULL,                             /**match on all object paths**/
-                                       NULL,                             /**match on all arguments**/
-                                       0,                                //Flags
-                                       on_unhide_temp_printers,          //callback
-                                       NULL,                             //user_data
-                                       NULL);
+    
 }

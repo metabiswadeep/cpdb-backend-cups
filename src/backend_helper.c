@@ -4,7 +4,11 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <cupsfilters/ipp.h>
 
+#define MAX_ADDRESSES 10 
 #define _CUPS_NO_DEPRECATED 1
 
 static http_t *system_conn = NULL;
@@ -81,7 +85,7 @@ void connect_to_dbus(BackendObj *b, char *obj_path)
                                      &error);
     if (error)
     {
-        MSG_LOG("Error connecting CUPS Backend to D-Bus.\n", ERR);
+        logerror("Error connecting CUPS Backend to D-Bus.\n");
     }
 }
 
@@ -354,7 +358,7 @@ gboolean dialog_contains_printer(BackendObj *b, const char *dialog_name, const c
     {
 	char *msg = malloc(sizeof(char) * (strlen(dialog_name) + 50));
         sprintf(msg, "Can't retrieve printers for dialog %s.\n", dialog_name);
-        MSG_LOG(msg, ERR);
+        logerror(msg);
 	free(msg);
         return FALSE;
     }
@@ -371,7 +375,7 @@ PrinterCUPS *add_printer_to_dialog(BackendObj *b, const char *dialog_name, const
     {
 	char *msg = malloc(sizeof(char) * (strlen(dialog_name) + 50));
         sprintf(msg, "Invalid dialog name %s.\n", dialog_name);
-        MSG_LOG(msg, ERR);
+        logerror(msg);
 	free(msg);
         return NULL;
     }
@@ -388,7 +392,7 @@ void remove_printer_from_dialog(BackendObj *b, const char *dialog_name, const ch
     {
 	char *msg = malloc(sizeof(char) * (strlen(printer_name) + 50));
         sprintf(msg, "Unable to remove printer %s.\n", printer_name);
-        MSG_LOG(msg, WARN);
+        logwarn(msg);
 	free(msg);
         return;
     }
@@ -400,8 +404,8 @@ void send_printer_added_signal(BackendObj *b, const char *dialog_name, cups_dest
 
     if (dest == NULL)
     {
-        MSG_LOG("Failed to send printer added signal.\n", ERR);
-        exit(EXIT_FAILURE);
+        logerror("Failed to send printer added signal.\n");
+        return;
     }
     char *printer_name = cpdbGetStringCopy(dest->name);
     GVariant *gv = g_variant_new(CPDB_PRINTER_ADDED_ARGS,
@@ -446,7 +450,7 @@ void send_printer_state_changed_signal(BackendObj *b, const char *dialog_name, c
                                   dialog_name,
                                   b->obj_path,
                                   "org.openprinting.PrintBackend",
-                                  CPDB_SIGNAL_PRINTER_REMOVED,
+                                  CPDB_SIGNAL_PRINTER_STATE_CHANGED,
                                   g_variant_new("(ssbs)", printer_name, printer_state,
                                                 printer_is_accepting_jobs, "CUPS"),
                                   &error);
@@ -460,7 +464,7 @@ void notify_removed_printers(BackendObj *b, const char *dialog_name, GHashTable 
 
     GHashTable *prev = d->printers;
     GList *prevlist = g_hash_table_get_keys(prev);
-    printf("Notifying removed printers.\n");
+    logdebug("Notifying removed printers.\n");
     gpointer printer_name = NULL;
     while (prevlist)
     {
@@ -482,7 +486,7 @@ void notify_added_printers(BackendObj *b, const char *dialog_name, GHashTable *n
     if (!d) return;
 
     GHashTable *prev = d->printers;
-    printf("Notifying added printers.\n");
+    logdebug("Notifying added printers.\n");
     gpointer printer_name;
     gpointer value;
     cups_dest_t *dest = NULL;
@@ -499,17 +503,17 @@ void notify_added_printers(BackendObj *b, const char *dialog_name, GHashTable *n
     }
 }
 
-gboolean get_hide_remote(BackendObj *b, char *dialog_name)
+gboolean get_hide_remote(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     return d->hide_remote;
 }
-gboolean get_hide_temp(BackendObj *b, char *dialog_name)
+gboolean get_hide_temp(BackendObj *b, const char *dialog_name)
 {
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     return d->hide_temp;
 }
-void refresh_printer_list(BackendObj *b, char *dialog_name)
+void refresh_printer_list(BackendObj *b, const char *dialog_name)
 {
     GHashTable *new_printers;
     new_printers = cups_get_printers(get_hide_temp(b, dialog_name), get_hide_remote(b, dialog_name));
@@ -521,7 +525,7 @@ GHashTable *get_dialog_printers(BackendObj *b, const char *dialog_name)
     Dialog *d = (Dialog *)g_hash_table_lookup(b->dialogs, dialog_name);
     if (d == NULL)
     {
-        MSG_LOG("Invalid dialog name.\n", ERR);
+        logerror("Invalid dialog name.\n");
         return NULL;
     }
     return d->printers;
@@ -533,8 +537,8 @@ PrinterCUPS *get_printer_by_name(BackendObj *b, const char *dialog_name, const c
     PrinterCUPS *p = (g_hash_table_lookup(printers, printer_name));
     if (p == NULL)
     {
-        printf("Printer '%s' does not exist for the dialog %s.\n", printer_name, dialog_name);
-        exit(EXIT_FAILURE);
+        logerror("Printer '%s' does not exist for the dialog %s.\n", printer_name, dialog_name);
+        return NULL;
     }
     return p;
 }
@@ -545,7 +549,8 @@ cups_dest_t *get_dest_by_name(BackendObj *b, const char *dialog_name, const char
     PrinterCUPS *p = (g_hash_table_lookup(printers, printer_name));
     if (p == NULL)
     {
-        printf("Printer '%s' does not exist for the dialog %s.\n", printer_name, dialog_name);
+        logerror("Printer '%s' does not exist for the dialog %s.\n", printer_name, dialog_name);
+	return NULL;
     }
     return p->dest;
 }
@@ -560,7 +565,7 @@ PrinterCUPS *get_new_PrinterCUPS(const cups_dest_t *dest)
     cupsCopyDest((cups_dest_t *)dest, 0, &dest_copy);
     if (dest_copy == NULL)
     {
-        MSG_LOG("Error creating PrinterCUPS", WARN);
+        logerror("Error creating PrinterCUPS");
         return NULL;
     }
     p->dest = dest_copy;
@@ -574,7 +579,7 @@ PrinterCUPS *get_new_PrinterCUPS(const cups_dest_t *dest)
 
 void free_PrinterCUPS(PrinterCUPS *p)
 {
-    printf("Freeing printerCUPS \n");
+    logdebug("Freeing printerCUPS \n");
     cupsFreeDests(1, p->dest);
     if (p->dinfo)
     {
@@ -706,9 +711,9 @@ void print_option(const Option *opt)
     int i;
     for (i = 0; i < opt->num_supported; i++)
     {
-        printf(" %s\n", opt->supported_values[i]);
+        logdebug(" %s\n", opt->supported_values[i]);
     }
-    printf("****DEFAULT: %s\n", opt->default_value);
+    logdebug("****DEFAULT: %s\n", opt->default_value);
 }
 void free_options(int count, Option *opts)
 {
@@ -737,7 +742,7 @@ void unpack_option_array(GVariant *var, int num_options, Option **options)
     g_variant_get(var, "a(ssia(s))", &iter);
     for (i = 0; i < num_options; i++)
     {
-        //printf("i = %d\n", i);
+        //logdebug("i = %d\n", i);
 
         g_variant_iter_loop(iter, "(ssia(s))", &name, &default_val,
                             &num_sup, &array_iter);
@@ -1151,7 +1156,7 @@ int get_all_media(PrinterCUPS *p, Media **medias)
     if (cupsLastError() >= IPP_STATUS_ERROR_BAD_REQUEST)
     {
         /* request failed */
-        printf("Request failed: %s\n", cupsLastErrorString());
+        logerror("Request failed: %s\n", cupsLastErrorString());
         return 0;
     }
     
@@ -1384,7 +1389,7 @@ const char *get_printer_state(PrinterCUPS *p)
     if (cupsLastError() >= IPP_STATUS_ERROR_BAD_REQUEST)
     {
         /* request failed */
-        printf("Request failed: %s\n", cupsLastErrorString());
+        logerror("Request failed: %s\n", cupsLastErrorString());
         return "NA";
     }
 
@@ -1393,7 +1398,7 @@ const char *get_printer_state(PrinterCUPS *p)
                                  IPP_TAG_ENUM)) != NULL)
     {
 
-        printf("printer-state=%d\n", ippGetInteger(attr, 0));
+        logdebug("printer-state=%d\n", ippGetInteger(attr, 0));
         str = map->state[ippGetInteger(attr, 0)];
     }
     return str;
@@ -1415,7 +1420,7 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
     for (i = 0; i < num_settings; i++)
     {
         g_variant_iter_loop(iter, "(ss)", &option_name, &option_value);
-        printf(" %s : %s\n", option_name, option_value);
+        logdebug(" %s : %s\n", option_name, option_value);
 
         /**
          * to do:
@@ -1431,7 +1436,7 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
                       &job_id, title, num_options, options);
     cupsStartDestDocument(p->http, p->dest, p->dinfo,
 			  job_id, NULL, CUPS_FORMAT_AUTO,
-			  num_options, options, 1);
+			  0, NULL, 1);
 
     int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (socket_fd == -1) {
@@ -1512,7 +1517,7 @@ void *print_data_thread(void *data) {
         // Send data to CUPS using cupsWriteRequestData
         http_status_t http_status = cupsWriteRequestData(thread_data->printer->http, buffer, bytesRead);
         if (http_status != HTTP_STATUS_CONTINUE) {
-            printf("Error writing print data to server.\n");
+            logerror("Error writing print data to server.\n");
             break;
         }
     }
@@ -1520,9 +1525,9 @@ void *print_data_thread(void *data) {
     // Cleanup and free resources
     close(thread_data->socket_fd);
     if (cupsFinishDestDocument(thread_data->printer->http, thread_data->printer->dest, thread_data->printer->dinfo) == IPP_STATUS_OK)
-        printf("Document send succeeded.\n");
+        logdebug("Document send succeeded.\n");
     else
-        printf("Document send failed: %s\n", cupsLastErrorString());
+        logerror("Document send failed: %s\n", cupsLastErrorString());
     cupsFreeOptions(thread_data->num_options, thread_data->options);
     g_free(thread_data);
     g_free(buffer);
@@ -1543,45 +1548,18 @@ void printAllJobs(PrinterCUPS *p)
 static void list_group(ppd_file_t *ppd,    /* I - PPD file */
                        ppd_group_t *group) /* I - Group to show */
 {
-    printf("List group %s\n", group->name);
+    logdebug("List group %s\n", group->name);
     /** Now iterate through the options in the particular group*/
-    printf("It has %d options.\n", group->num_options);
-    printf("Listing all of them ..\n");
+    logdebug("It has %d options.\n", group->num_options);
+    logdebug("Listing all of them ..\n");
     int i;
     for (i = 0; i < group->num_options; i++)
     {
-        printf("    Option %d : %s\n", i, group->options[i].keyword);
+        logdebug("    Option %d : %s\n", i, group->options[i].keyword);
     }
 }
-void tryPPD(PrinterCUPS *p)
-{
-    const char *filename; /* PPD filename */
-    ppd_file_t *ppd;      /* PPD data */
-    ppd_group_t *group;   /* Current group */
-    if ((filename = cupsGetPPD(p->dest->name)) == NULL)
-    {
-        printf("Error getting ppd file.\n");
-        return;
-    }
-    g_message("Got ppd file %s\n", filename);
-    if ((ppd = ppdOpenFile(filename)) == NULL)
-    {
-        printf("Error opening ppd file.\n");
-        return;
-    }
-    printf("Opened ppd file.\n");
-    ppdMarkDefaults(ppd);
 
-    cupsMarkOptions(ppd, p->dest->num_options, p->dest->options);
 
-    group = ppd->groups;
-    for (int i = ppd->num_groups; i > 0; i--)
-    {
-        /**iterate through all the groups in the ppd file */
-        list_group(ppd, group);
-        group++;
-    }
-}
 /**********Dialog related funtions ****************/
 Dialog *get_new_Dialog()
 {
@@ -1598,7 +1576,7 @@ Dialog *get_new_Dialog()
 
 void free_Dialog(Dialog *d)
 {
-    printf("freeing dialog..\n");
+    logdebug("freeing dialog..\n");
     g_hash_table_destroy(d->printers);
     free(d);
 }
@@ -1671,14 +1649,25 @@ int add_printer_to_ht_no_temp(void *user_data, unsigned flags, cups_dest_t *dest
     return 1;
 }
 
+int add_printer_to_ht_no_remote(void *user_data, unsigned flags, cups_dest_t *dest)
+{
+    if (cups_is_remote(dest))
+        return 1;
+    GHashTable *h = (GHashTable *)user_data;
+    char *printername = cpdbGetStringCopy(dest->name);
+    cups_dest_t *dest_copy = NULL;
+    cupsCopyDest(dest, 0, &dest_copy);
+    g_hash_table_insert(h, printername, dest_copy);
+    return 1;
+}
+
 GHashTable *cups_get_printers(gboolean notemp, gboolean noremote)
 {
     cups_dest_cb_t cb = add_printer_to_ht;
     unsigned type = 0, mask = 0;
     if (noremote)
     {
-        type = CUPS_PRINTER_LOCAL;
-        mask = CUPS_PRINTER_REMOTE;
+        cb = add_printer_to_ht_no_remote;
     }
     if (notemp)
     {
@@ -1687,7 +1676,7 @@ GHashTable *cups_get_printers(gboolean notemp, gboolean noremote)
 
     GHashTable *printers_ht = g_hash_table_new(g_str_hash, g_str_equal);
     cupsEnumDests(CUPS_DEST_FLAGS_NONE,
-                  1000,         //timeout
+                  3000,         //timeout
                   NULL,         //cancel
                   type,         //TYPE
                   mask,         //MASK
@@ -1698,7 +1687,7 @@ GHashTable *cups_get_printers(gboolean notemp, gboolean noremote)
 }
 GHashTable *cups_get_all_printers()
 {
-    printf("all printers\n");
+    logdebug("all printers\n");
     // to do : fix
     GHashTable *printers_ht = g_hash_table_new(g_str_hash, g_str_equal);
     cupsEnumDests(CUPS_DEST_FLAGS_NONE,
@@ -1713,7 +1702,7 @@ GHashTable *cups_get_all_printers()
 }
 GHashTable *cups_get_local_printers()
 {
-    printf("local printers\n");
+    logdebug("local printers\n");
     //to do: fix
     GHashTable *printers_ht = g_hash_table_new(g_str_hash, g_str_equal);
     cupsEnumDests(CUPS_DEST_FLAGS_NONE,
@@ -1748,6 +1737,182 @@ gboolean cups_is_temporary(cups_dest_t *dest)
     if (cupsGetOption("printer-uri-supported", dest->num_options, dest->options))
         return FALSE;
     return TRUE;
+}
+
+char *extractHostFromURI(const char *uri) {
+    const char *host_start, *host_end;
+    char *host = NULL;
+
+    // Find the start of the host part
+    host_start = strstr(uri, "://");
+    if (host_start != NULL) {
+        host_start += 3; // Move past "://"
+    } else {
+        return NULL;
+    }
+
+    // Find the end of the host part
+    const char *slash_pos = strchr(host_start, '/');
+    const char *colon_pos = strchr(host_start, ':');
+
+    if (slash_pos == NULL && colon_pos == NULL) {
+        host_end = host_start + strlen(host_start); // If no "/" or ":", host extends to end of string
+    } else if (slash_pos == NULL) {
+        host_end = colon_pos;
+    } else if (colon_pos == NULL) {
+        host_end = slash_pos;
+    } else {
+        host_end = (slash_pos < colon_pos) ? slash_pos : colon_pos;
+    }
+
+    // Allocate memory for the host part
+    host = (char *)malloc(host_end - host_start + 1);
+    if (host != NULL) {
+        // Copy the host part
+        strncpy(host, host_start, host_end - host_start);
+        host[host_end - host_start] = '\0'; // Null-terminate the string
+    }
+
+    fprintf(stderr, "XXX12: URI: %s Host: %s\n", uri, host);
+
+    return host;
+}
+
+gboolean checkRemote(const char *uri) {
+    //GET LOCALHOST ADDRESSES
+    char hostname[1024];
+
+    // Get the hostname of the local machine
+    if (gethostname(hostname, sizeof(hostname)) == -1) {
+        perror("gethostname");
+        return 1;
+    }
+
+    strcat(hostname, ".local");
+
+    // Get the network IP addresses associated with the hostname
+    struct addrinfo hints, *res, *p;
+    int status;
+    int num_addresses = 0;
+    AddressList addresses[MAX_ADDRESSES];
+
+    // Get the IPv4 addresses associated with the hostname
+    {
+
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET; // IPv4
+        hints.ai_socktype = SOCK_STREAM;
+
+        if ((status = getaddrinfo(hostname, NULL, &hints, &res)) != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+            return 1;
+        }
+
+        // Iterate over the linked list of addrinfo structures
+        for (p = res; p != NULL && num_addresses < MAX_ADDRESSES; p = p->ai_next) {
+            inet_ntop(p->ai_family, &((struct sockaddr_in *)p->ai_addr)->sin_addr, addresses[num_addresses].ipstr, sizeof(addresses[num_addresses].ipstr));
+            addresses[num_addresses].family = p->ai_family;
+            num_addresses++;
+        }
+
+        freeaddrinfo(res); // Free the linked list
+    }
+
+    // Get the IPv6 addresses associated with the hostname
+    {
+
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET6; // IPv6
+        hints.ai_socktype = SOCK_STREAM;
+
+        if ((status = getaddrinfo(hostname, NULL, &hints, &res)) != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+            return 1;
+        }
+
+        // Iterate over the linked list of addrinfo structures
+        for (p = res; p != NULL && num_addresses < MAX_ADDRESSES; p = p->ai_next) {
+            inet_ntop(p->ai_family, &((struct sockaddr_in6 *)p->ai_addr)->sin6_addr, addresses[num_addresses].ipstr, sizeof(addresses[num_addresses].ipstr));
+            addresses[num_addresses].family = p->ai_family;
+            num_addresses++;
+        }
+
+        freeaddrinfo(res); // Free the linked list
+    }
+
+    // COMPARE LOCAL IP ADDRESSES WITH THAT OF THE URI
+    struct addrinfo *uri_res;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    const char* new_uri = extractHostFromURI(uri);
+
+    if ((status = getaddrinfo(new_uri, NULL, &hints, &uri_res)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        return 1;
+    }
+
+
+    for (p = uri_res; p != NULL; p = p->ai_next) {
+        void *addr;
+        char ipstr[INET6_ADDRSTRLEN];
+
+        // Get the pointer to the address itself,
+        // different fields in IPv4 and IPv6:
+        if (p->ai_family == AF_INET) { // IPv4
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            addr = &(ipv4->sin_addr);
+        } else { // IPv6
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+            addr = &(ipv6->sin6_addr);
+        }
+
+        // Convert the IP to a string
+        inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
+
+        // Check if this IP address matches any of the addresses associated with the local hostname
+        for (int i = 0; i < num_addresses; i++) {
+            if (p->ai_family == addresses[i].family && strcmp(ipstr, addresses[i].ipstr) == 0) {
+                return FALSE;
+            }
+        }
+    }
+
+    freeaddrinfo(uri_res); // Free the linked list
+    return TRUE;
+}
+
+gboolean cups_is_remote(cups_dest_t *dest)
+{
+    g_assert_nonnull(dest);
+    const char *device_uri = cupsGetOption("device-uri", dest->num_options, dest->options);
+
+    const char *uri = cfResolveURI(device_uri);
+
+    fprintf(stderr, "XXX10: deviceURI: %s \n", device_uri);
+    fprintf(stderr, "XXX11: cfURI: %s \n", uri);
+
+    // Check for "localhost"
+    if (strstr(uri, "localhost") != NULL) {
+        return FALSE;
+    }
+    
+    // Check for "::1"
+    if (strstr(uri, "::1") != NULL) {
+        return FALSE;
+    }
+    
+    // Check for IPv4 IP addresses starting with "127"
+    if (strncmp(uri, "127.", 4) == 0) {
+        return FALSE;
+    }
+
+    // Check if the URI starts with "usb://" or "parallel://"
+    if (strncmp(uri, "usb://", 6) == 0 || strncmp(uri, "parallel://", 11) == 0) {
+        return FALSE;
+    }
+
+    return checkRemote(uri);
 }
 
 char *extract_ipp_attribute(ipp_attribute_t *attr, int index, const char *option_name)
@@ -1817,13 +1982,13 @@ char *extract_orientation_from_ipp(ipp_attribute_t *attr, int index)
 
 void print_job(cups_job_t *j)
 {
-    printf("title : %s\n", j->title);
-    printf("dest : %s\n", j->dest);
-    printf("job-id : %d\n", j->id);
-    printf("user : %s\n", j->user);
+    logdebug("title : %s\n", j->title);
+    logdebug("dest : %s\n", j->dest);
+    logdebug("job-id : %d\n", j->id);
+    logdebug("user : %s\n", j->user);
 
     char *state = translate_job_state(j->state);
-    printf("state : %s\n", state);
+    logdebug("state : %s\n", state);
 }
 
 char *get_option_translation(PrinterCUPS *p,
@@ -1850,7 +2015,7 @@ char *get_option_translation(PrinterCUPS *p,
     if (cupsLastError() >= IPP_STATUS_ERROR_BAD_REQUEST)
     {
         /* request failed */
-        printf("Request failed: %s\n", cupsLastErrorString());
+        logerror("Request failed: %s\n", cupsLastErrorString());
         return cpdbGetStringCopy(option_name);
     }
 
@@ -1896,7 +2061,7 @@ char *get_choice_translation(PrinterCUPS *p,
     if (cupsLastError() >= IPP_STATUS_ERROR_BAD_REQUEST)
     {
         /* request failed */
-        printf("Request failed: %s\n", cupsLastErrorString());
+        logerror("Request failed: %s\n", cupsLastErrorString());
         return cpdbGetStringCopy(choice_name);
     }
 
@@ -2002,7 +2167,7 @@ char *translate_job_state(ipp_jstate_t state)
 
 GVariant *pack_cups_job(cups_job_t job)
 {
-    printf("%s\n", job.dest);
+    logdebug("%s\n", job.dest);
     GVariant **t = g_new0(GVariant *, 7);
     char jobid[20];
     snprintf(jobid, sizeof(jobid), "%d", job.id);
@@ -2016,15 +2181,6 @@ GVariant *pack_cups_job(cups_job_t job)
     GVariant *tuple_variant = g_variant_new_tuple(t, 7);
     g_free(t);
     return tuple_variant;
-}
-
-void MSG_LOG(const char *msg, int msg_level)
-{
-    if (MSG_LOG_LEVEL >= msg_level)
-    {
-        printf("%s\n", msg);
-        fflush(stdout);
-    }
 }
 
 void free_string(char *str)

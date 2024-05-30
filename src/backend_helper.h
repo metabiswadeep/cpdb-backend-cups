@@ -102,14 +102,6 @@ typedef struct _Media
 	int (*margins)[4]; /** int margins[num_margins][4]; left(0), right(1), top(2), bottom(3) **/
 } Media;
 
-/*
-typedef struct _PrintResult
-{
-    gchar *jobid;
-    gchar *socket;
-} PrintResult;
-*/
-
 typedef struct _PrintDataThreadData {
     PrinterCUPS *printer;
     int num_options;
@@ -117,6 +109,11 @@ typedef struct _PrintDataThreadData {
     int socket_fd;
     struct sockaddr_un server_addr;
 } PrintDataThreadData;
+
+typedef struct _AddressList {
+    char ipstr[INET6_ADDRSTRLEN];
+    int family;
+} AddressList;
 
 /********Backend related functions*******************/
 
@@ -154,7 +151,7 @@ void set_dialog_cancel(BackendObj *, const char *dialog_name);   //make cancel =
 void reset_dialog_cancel(BackendObj *, const char *dialog_name); //make cancel = 1
 
 /** Returns whether remote CUPS printers are hidden for this dialog **/
-gboolean get_hide_remote(BackendObj *b, char *dialog_name);
+gboolean get_hide_remote(BackendObj *b, const char *dialog_name);
 
 /** Hides remote CUPS printers for the dialog **/
 void set_hide_remote_printers(BackendObj *, const char *dialog_name);
@@ -163,7 +160,7 @@ void set_hide_remote_printers(BackendObj *, const char *dialog_name);
 void unset_hide_remote_printers(BackendObj *, const char *dialog_name);
 
 /** Returns whether temporary CUPS Queues(discovered, but not set up) are hidden for this dialog **/
-gboolean get_hide_temp(BackendObj *b, char *dialog_name);
+gboolean get_hide_temp(BackendObj *b, const char *dialog_name);
 
 /** Hides temporary CUPS queues for the dialog **/
 void set_hide_temp_printers(BackendObj *, const char *dialog_name);
@@ -205,7 +202,7 @@ void send_printer_removed_signal(BackendObj *b, const char *dialog_name, const c
 void notify_removed_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table);
 void notify_added_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table);
 void replace_printers(BackendObj *b, const char *dialog_name, GHashTable *new_table);
-void refresh_printer_list(BackendObj *b, char *dialog_name);
+void refresh_printer_list(BackendObj *b, const char *dialog_name);
 GHashTable *get_dialog_printers(BackendObj *b, const char *dialog_name);
 cups_dest_t *get_dest_by_name(BackendObj *b, const char *dialog_name, const char *printer_name);
 PrinterCUPS *get_printer_by_name(BackendObj *b, const char *dialog_name, const char *printer_name);
@@ -239,6 +236,8 @@ static void *print_data_thread(void *data);
 void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *job_id_str, char *socket_path, const char *title);
 
 
+gboolean checkRemote(const char *uri);
+char *extractHostFromURI(const char *uri);
 /**
  * Get translation of choice name for a given locale
  */
@@ -279,6 +278,7 @@ GHashTable *cups_get_all_printers();
 GHashTable *cups_get_local_printers();
 char *cups_retrieve_string(cups_dest_t *dest, const char *option_name);
 gboolean cups_is_temporary(cups_dest_t *dest);
+gboolean cups_is_remote(cups_dest_t *dest);
 GHashTable *cups_get_printers(gboolean notemp, gboolean noremote);
 char *extract_ipp_attribute(ipp_attribute_t *, int index, const char *option_name);
 char *extract_res_from_ipp(ipp_attribute_t *, int index);
