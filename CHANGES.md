@@ -1,4 +1,49 @@
-# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b5 - 2023-08-02
+# CHANGES - Common Print Dialog Backends - CUPS Backend - v2.0b6 - 2024-06-18
+
+## CHANGES IN V2.0b6 (18th June 2024)
+
+- Stream print data through a Unix domain socket
+  To ease making a Snap from the CPDB backend for CUPS we now transfer
+  the print job data from the dialog to the backend via a Unix domain
+  socket and not by dropping the data into a file (PR #28).
+
+- Let the frontend not be a D-Bus service, only the backends
+  To control hiding temporary or remote printers in the backend's
+  printer list we have added methods to the D-Bus service provided by
+  the backends now. Before, the frontends were also D-Bus services
+  just to send signals to the backends for controling the filtering
+  (PR #29).
+
+- Unified logging. Always use log...() functions (PR #29).
+
+- Updated names of some CUPS constants to CUPS 2.5.x and newer (PR #28).
+
+- Removed the backend functions for get-all-jobs(),
+  get_active_jobs_count(), and cancel_job() (PR #28).
+
+- Removed tryPPD(), a useless, PPD-related function
+  This function logs the options in the PPD of the CUPS queue but does
+  nothing else. PPDs will also go away in CUPS 3.x, so we want the CUPS
+  backend not depend on PPDs or PPD-supporting functions/libraries (PR #29).
+
+- send_printer_state_changed_signal(): Send correct signal
+  Send CPDB_SIGNAL_PRINTER_STATE_CHANGED, not
+  CPDB_SIGNAL_PRINTER_REMOVED (#29).
+
+- Let "dialog_name" always be "const char *", to eliminate warnings (PR #29).
+
+- Added NULL checks for the functions dealing with dialogs
+
+- Build test: Give more time (3 instead of 1 sec) for the print job
+  submission before closing the backend, to get note of the
+  confirmation of successful submission (PR #28).
+
+- Build test: Let CPDB frontend and backend log in debug mode (PR #28).
+
+- Build test: Create the directory for the socket files (PR #28).
+
+- Updated build test for removal of backend info file
+
 
 ## CHANGES IN V2.0b5 (2nd August 2023)
 

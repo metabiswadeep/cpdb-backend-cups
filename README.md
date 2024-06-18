@@ -41,6 +41,8 @@ The backend is auto-activated when a frontend (like a CPDB-supporting print dial
 
 However, if you wish to see the debug statements in the backend code, you can run `/usr/local/lib/print-backends/cups`
 
+NOTE: The communication protocol between frontends and backends has changed (Job data streaming via domain socket, printer list filteringvia D-Bus methods). Therefore use this backend only with frontends based on cpdb-libs of at least version 2.0b6.
+
 ## More Info
 
 - [Nilanjana Lodh's Google Summer of Code 2017 Final Report](https://nilanjanalodh.github.io/common-print-dialog-gsoc17/)
