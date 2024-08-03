@@ -1629,25 +1629,14 @@ void cups_get_Resolution(cups_dest_t *dest, int *xres, int *yres)
 
 int add_printer_to_ht(void *user_data, unsigned flags, cups_dest_t *dest)
 {
-    GHashTable *printers_ht = (GHashTable *)user_data;
+    GHashTable *h = (GHashTable *)user_data;
+    char *printername = g_strdup(dest->name);
+    cups_dest_t *dest_copy = NULL;
+    cupsCopyDest(dest, 0, &dest_copy);
+    g_hash_table_insert(h, printername, dest_copy);
 
-    // Insert the main printer
-    g_hash_table_insert(printers_ht, g_strdup(dest->name), g_strdup(dest->name));
-
-    // Iterate through each instance of the printer
-    for (int i = 0; i < dest->num_options; i++)
-    {
-        if (strcmp(dest->options[i].name, "printer-instance") == 0)
-        {
-            char *printer_instance = g_strdup_printf("%s/%s", dest->name, dest->options[i].value);
-            g_hash_table_insert(printers_ht, g_strdup(printer_instance), g_strdup(dest->name));
-            g_free(printer_instance);
-        }
-    }
-
-    return 1; // Continue enumeration
+    return 1;
 }
-
 int add_printer_to_ht_no_temp(void *user_data, unsigned flags, cups_dest_t *dest)
 {
     if (cups_is_temporary(dest))
