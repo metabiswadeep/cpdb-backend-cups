@@ -1444,8 +1444,8 @@ void print_socket(PrinterCUPS *p, int num_settings, GVariant *settings, char *jo
     cupsCreateDestJob(p->http, p->dest, p->dinfo,
                       &job_id, title, num_options, options);
     cupsStartDestDocument(p->http, p->dest, p->dinfo,
-			  job_id, NULL, CUPS_FORMAT_AUTO,
-			  0, NULL, 1);
+			  job_id, title, CUPS_FORMAT_AUTO,
+			  num_options, options, 1);
 
     int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (socket_fd == -1) {
